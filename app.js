@@ -1,70 +1,19 @@
 /**
- * QRPresensi - Application Logic (Vanilla JS with Firebase Firestore Integration)
+ * QRPresensi - Application Logic (Production Ready)
  * Mengelola state guru, pengaturan jadwal, riwayat presensi harian, dan simulator mobile.
- * Mendukung penyimpanan lokal (LocalStorage) dan sinkronisasi Cloud waktu nyata (Firebase).
+ * Sistem bersih tanpa data demo, siap digunakan secara nyata dengan Firebase atau LocalStorage.
  */
 
 // ==========================================================================
-// STATE MANAGEMENT & DATA DEFAULT
+// STATE MANAGEMENT & DATA AWAL (BERSIH / KOSONG)
 // ==========================================================================
 
-const DEFAULT_TEACHERS = [
-    { id: "t1", name: "Budi Santoso, S.Pd.", nip: "198203112009041003", checkIn: "07:00", picket: "Senin" },
-    { id: "t2", name: "Rina Wijaya, M.Pd.", nip: "198705142014022001", checkIn: "07:00", picket: "Selasa" },
-    { id: "t3", name: "Ahmad Fauzi, S.T.", nip: "198008232006041002", checkIn: "07:30", picket: "Rabu" },
-    { id: "t4", name: "Siti Aminah, S.Ag.", nip: "197509121998032004", checkIn: "07:00", picket: "Kamis" },
-    { id: "t5", name: "Diana Lestari, S.Psi.", nip: "199112092019032015", checkIn: "07:15", picket: "Jumat" }
-];
+// Memulai dengan daftar guru kosong untuk diisi oleh Admin secara nyata
+const DEFAULT_TEACHERS = [];
 
-// Generator riwayat log presensi historis untuk demo dashboard agar terlihat penuh (Juli 1 - Juli 10, 2026)
+// Riwayat presensi kosong untuk memulai catatan baru
 function generateHistoricalLogs() {
-    const logs = [];
-    const dates = [
-        "2026-07-01", "2026-07-02", "2026-07-03", "2026-07-06", 
-        "2026-07-07", "2026-07-08", "2026-07-09", "2026-07-10"
-    ]; // Melewatkan sabtu/minggu
-
-    dates.forEach(date => {
-        DEFAULT_TEACHERS.forEach((teacher, idx) => {
-            let checkInTime;
-            let checkHour = parseInt(teacher.checkIn.split(":")[0]);
-            let checkMin = parseInt(teacher.checkIn.split(":")[1]);
-            
-            const rand = Math.random();
-            if (rand < 0.15) {
-                checkMin += Math.floor(Math.random() * 20) + 16; // Terlambat
-            } else {
-                checkMin += Math.floor(Math.random() * 14) - 5; // Tepat waktu
-            }
-
-            if (checkMin >= 60) {
-                checkHour += 1;
-                checkMin -= 60;
-            } else if (checkMin < 0) {
-                checkMin += 60;
-                checkHour -= 1;
-            }
-
-            const formattedTime = `${String(checkHour).padStart(2, '0')}:${String(checkMin).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`;
-            
-            const checkInLimit = new Date(`${date}T${teacher.checkIn}`);
-            const checkInActual = new Date(`${date}T${formattedTime}`);
-            const diffMin = (checkInActual - checkInLimit) / (1000 * 60);
-            const status = diffMin > 15 ? "Terlambat" : "Tepat Waktu";
-
-            logs.push({
-                id: `l-${date}-${teacher.id}`,
-                teacherId: teacher.id,
-                teacherName: teacher.name,
-                teacherNip: teacher.nip,
-                date: date,
-                time: formattedTime,
-                status: status
-            });
-        });
-    });
-
-    return logs;
+    return [];
 }
 
 let state = {
@@ -103,10 +52,10 @@ async function initDatabase() {
                 indicatorBox.classList.add("cloud");
             }
 
-            // Benahi data awal di Firestore jika masih kosong (seeding)
+            // Inisialisasi pengaturan default di Firestore jika belum ada
             await seedFirestoreIfEmpty();
             
-            // Dengarkan perubahan data Firestore secara realtime
+            // Dengarkan perubahan database secara realtime
             initFirebaseListeners();
 
         } catch (e) {
@@ -160,36 +109,19 @@ function saveStateToLocal() {
 
 async function seedFirestoreIfEmpty() {
     try {
-        const teachersSnapshot = await db.collection("teachers").limit(1).get();
-        if (teachersSnapshot.empty) {
-            console.log("Seeding data guru default ke Firestore...");
-            const batch = db.batch();
-            DEFAULT_TEACHERS.forEach(t => {
-                const docRef = db.collection("teachers").doc(t.id);
-                batch.set(docRef, t);
-            });
-            await batch.commit();
-        }
-
+        // Untuk produksi bersih, kita HANYA menginisialisasi setelan global default jika belum ada.
+        // Kita TIDAK memasukkan data guru tiruan atau riwayat presensi tiruan.
         const settingsSnapshot = await db.collection("settings").doc("global").get();
         if (!settingsSnapshot.exists) {
             console.log("Seeding pengaturan default ke Firestore...");
-            await db.collection("settings").doc("global").set(state.settings);
-        }
-
-        const attendanceSnapshot = await db.collection("attendance").limit(1).get();
-        if (attendanceSnapshot.empty) {
-            console.log("Seeding riwayat kehadiran default ke Firestore...");
-            const mockLogs = generateHistoricalLogs();
-            const batch = db.batch();
-            mockLogs.forEach(log => {
-                const docRef = db.collection("attendance").doc(log.id);
-                batch.set(docRef, log);
+            await db.collection("settings").doc("global").set({
+                defaultCheckIn: "07:00",
+                toleranceMinutes: 15,
+                picketDays: ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"]
             });
-            await batch.commit();
         }
     } catch (e) {
-        console.error("Error seeding Firestore data:", e);
+        console.error("Error seeding Firestore settings:", e);
     }
 }
 
@@ -213,7 +145,6 @@ function initFirebaseListeners() {
         if (doc.exists) {
             state.settings = doc.data();
             
-            // Perbarui form jika user sedang berada di tab pengaturan
             const inputCheckin = document.getElementById("set-default-checkin");
             const inputTolerance = document.getElementById("set-tolerance-minutes");
             if (inputCheckin) inputCheckin.value = state.settings.defaultCheckIn;
@@ -364,7 +295,6 @@ function initTabNavigation() {
             item.classList.add("active");
             document.getElementById(`tab-${targetTab}`).classList.add("active");
             
-            // Triggers render data on tab switch
             if (targetTab === "teachers") {
                 renderTeachersTable();
             } else if (targetTab === "reports") {
@@ -464,8 +394,8 @@ function renderTeachersTable() {
     if (filteredTeachers.length === 0) {
         listBody.innerHTML = `
             <tr>
-                <td colspan="6" style="text-align: center; color: var(--text-muted);">
-                    Tidak ada data guru yang cocok dengan pencarian / filter.
+                <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                    Belum ada data guru. Silakan klik tombol 'Tambah Guru Baru' di atas untuk mulai memasukkan data.
                 </td>
             </tr>
         `;
@@ -608,6 +538,20 @@ if (formSettings) {
     });
 }
 
+const btnResetDb = document.getElementById("btn-reset-database");
+if (btnResetDb) {
+    btnResetDb.addEventListener("click", () => {
+        if (confirm("Apakah Anda yakin ingin menghapus seluruh data guru dan riwayat presensi lokal yang tersimpan di browser ini?")) {
+            localStorage.removeItem('qr_presensi_teachers');
+            localStorage.removeItem('qr_presensi_attendance');
+            localStorage.removeItem('qr_presensi_settings');
+            
+            alert("Data lokal browser berhasil direset! Halaman akan dimuat ulang.");
+            window.location.reload();
+        }
+    });
+}
+
 // ==========================================================================
 // TAB 4: LAPORAN & EXPORT
 // ==========================================================================
@@ -625,8 +569,11 @@ function renderReports() {
         const lateCount = teacherLogs.filter(log => log.status === "Terlambat").length;
         const promptCount = presentCount - lateCount;
         
-        // Asumsi jumlah hari sekolah aktif terlewati dalam simulasi adalah 8 hari
-        const totalWorkDays = 8;
+        // Default asumsi hari sekolah aktif (produksi: hitung dinamis dari log unik tanggal atau default 20 hari sebulan)
+        // Kita gunakan jumlah tanggal presensi unik bulan ini agar skor presensi akurat
+        const uniqueDates = [...new Set(monthlyLogs.map(l => l.date))];
+        const totalWorkDays = Math.max(1, uniqueDates.length);
+        
         const absentCount = Math.max(0, totalWorkDays - presentCount);
         const score = totalWorkDays > 0 ? Math.round(((promptCount * 100) + (lateCount * 50)) / totalWorkDays) : 0;
 
@@ -665,15 +612,18 @@ function renderChartData(reportData) {
     if (!chartContainer) return;
 
     if (reportData.length === 0) {
-        chartContainer.innerHTML = `<p style="color: var(--text-muted); margin: auto;">Belum ada data untuk grafik.</p>`;
+        chartContainer.innerHTML = `<p style="color: var(--text-muted); margin: auto; padding: 24px;">Belum ada data untuk menampilkan grafik.</p>`;
         return;
     }
 
     const topTeachers = reportData.slice(0, 5);
 
+    // Dapatkan max hari kehadiran untuk kalkulasi tinggi grafis secara dinamis
+    const maxDays = Math.max(...reportData.map(t => t.present), 1);
+
     chartContainer.innerHTML = topTeachers.map(t => {
-        const presentHeight = (t.prompt / 8) * 100;
-        const lateHeight = (t.late / 8) * 100;
+        const presentHeight = (t.prompt / maxDays) * 100;
+        const lateHeight = (t.late / maxDays) * 100;
         const nameShort = t.name.split(",")[0];
 
         return `
@@ -733,6 +683,11 @@ function populateSimulatorTeacherDropdown() {
     const select = document.getElementById("select-sim-teacher");
     if (!select) return;
 
+    if (state.teachers.length === 0) {
+        select.innerHTML = `<option value="">-- Belum Ada Guru --</option>`;
+        return;
+    }
+
     select.innerHTML = state.teachers.map(t => `
         <option value="${t.id}">${t.name}</option>
     `).join("");
@@ -740,48 +695,74 @@ function populateSimulatorTeacherDropdown() {
 
 function updateSimulatorTeacherProfile() {
     const select = document.getElementById("select-sim-teacher");
-    if (!select || !select.value) return;
+    const initialsEl = document.getElementById("sim-teacher-initials");
+    const nameEl = document.getElementById("sim-teacher-name");
+    const nipEl = document.getElementById("sim-teacher-nip");
+    const statusBox = document.getElementById("sim-attendance-status-box");
+    const statusText = document.getElementById("sim-attendance-status-text");
+    const btnScan = document.getElementById("btn-trigger-scan");
+
+    if (!select || !select.value) {
+        // Bersihkan tampilan simulator jika guru kosong
+        if (initialsEl) initialsEl.textContent = "--";
+        if (nameEl) nameEl.textContent = "Belum Ada Guru";
+        if (nipEl) nipEl.textContent = "NIP: -";
+        if (statusText) statusText.textContent = "Silakan tambah guru di panel admin.";
+        if (statusBox) {
+            statusBox.className = "attendance-status-box";
+            statusBox.querySelector("i").className = "fa-solid fa-circle-question";
+        }
+        if (btnScan) {
+            btnScan.disabled = true;
+            btnScan.style.opacity = "0.4";
+            btnScan.style.cursor = "not-allowed";
+        }
+        
+        const list = document.getElementById("sim-personal-logs");
+        if (list) list.innerHTML = `<p style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 10px;">Belum ada riwayat.</p>`;
+        return;
+    }
 
     const teacher = state.teachers.find(t => t.id === select.value);
     if (!teacher) return;
 
     const initials = teacher.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
-    document.getElementById("sim-teacher-initials").textContent = initials;
-    document.getElementById("sim-teacher-name").textContent = teacher.name;
-    document.getElementById("sim-teacher-nip").textContent = `NIP: ${teacher.nip}`;
+    if (initialsEl) initialsEl.textContent = initials;
+    if (nameEl) nameEl.textContent = teacher.name;
+    if (nipEl) nipEl.textContent = `NIP: ${teacher.nip}`;
     
     // Jadwal
     const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
     const todayIndex = new Date().getDay();
     const todayName = days[todayIndex];
 
-    document.getElementById("sim-today-day").textContent = todayName;
-    document.getElementById("sim-checkin-time").textContent = teacher.checkIn;
+    const todayDayEl = document.getElementById("sim-today-day");
+    if (todayDayEl) todayDayEl.textContent = todayName;
+    
+    const checkinTimeEl = document.getElementById("sim-checkin-time");
+    if (checkinTimeEl) checkinTimeEl.textContent = teacher.checkIn;
     
     const isPicket = teacher.picket === todayName;
-    document.getElementById("sim-picket-status").textContent = isPicket ? "Ya (Piket)" : "Tidak";
+    const picketStatusEl = document.getElementById("sim-picket-status");
+    if (picketStatusEl) picketStatusEl.textContent = isPicket ? "Ya (Piket)" : "Tidak";
 
     // Cek Status Kehadiran Hari ini
     const todayStr = getTodayString();
     const checkedLog = state.attendance.find(log => log.teacherId === teacher.id && log.date === todayStr);
     
-    const statusBox = document.getElementById("sim-attendance-status-box");
-    const statusText = document.getElementById("sim-attendance-status-text");
-    const btnScan = document.getElementById("btn-trigger-scan");
-
     if (checkedLog) {
-        statusBox.className = "attendance-status-box " + (checkedLog.status === "Terlambat" ? "late" : "present");
-        statusText.innerHTML = `Sudah Presensi: <strong>${checkedLog.time.substring(0, 5)}</strong> (${checkedLog.status})`;
-        statusBox.querySelector("i").className = "fa-solid fa-circle-check";
+        if (statusBox) statusBox.className = "attendance-status-box " + (checkedLog.status === "Terlambat" ? "late" : "present");
+        if (statusText) statusText.innerHTML = `Sudah Presensi: <strong>${checkedLog.time.substring(0, 5)}</strong> (${checkedLog.status})`;
+        if (statusBox) statusBox.querySelector("i").className = "fa-solid fa-circle-check";
         if (btnScan) {
             btnScan.disabled = true;
             btnScan.style.opacity = "0.4";
             btnScan.style.cursor = "not-allowed";
         }
     } else {
-        statusBox.className = "attendance-status-box";
-        statusText.textContent = "Belum Presensi Hari Ini";
-        statusBox.querySelector("i").className = "fa-solid fa-circle-question";
+        if (statusBox) statusBox.className = "attendance-status-box";
+        if (statusText) statusText.textContent = "Belum Presensi Hari Ini";
+        if (statusBox) statusBox.querySelector("i").className = "fa-solid fa-circle-question";
         if (btnScan) {
             btnScan.disabled = false;
             btnScan.style.opacity = "1";

@@ -296,6 +296,20 @@
                                         <span>Perubahan aturan waktu akan langsung berdampak pada kalkulasi presensi baru berikutnya hari ini.</span>
                                     </div>
                                 </div>
+                        </div>
+
+                        <!-- Reset Database Option -->
+                        <div class="settings-card glass-card" style="margin-top: 20px; border-color: rgba(239, 68, 68, 0.25);">
+                            <h3 style="color: var(--color-danger); display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 16px; font-weight: 600;">
+                                <i class="fa-solid fa-trash-can"></i> Bersihkan Penyimpanan Demo (Reset Cache)
+                            </h3>
+                            <div class="info-content" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+                                <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">
+                                    Jika Anda mendeteksi data guru/presensi demo lama masih tersimpan di browser ini (cache local storage), tekan tombol ini untuk membersihkannya secara permanen.
+                                </p>
+                                <button class="btn btn-pdf" id="btn-reset-database" style="background: linear-gradient(135deg, #ef4444, #be123c); box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3); font-weight: 700;">
+                                    <i class="fa-solid fa-trash-arrow-up"></i> Bersihkan Cache Lokal Browser
+                                </button>
                             </div>
                         </div>
                     </div>
