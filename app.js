@@ -538,19 +538,16 @@ if (formSettings) {
     });
 }
 
-const btnResetDb = document.getElementById("btn-reset-database");
-if (btnResetDb) {
-    btnResetDb.addEventListener("click", () => {
-        if (confirm("Apakah Anda yakin ingin menghapus seluruh data guru dan riwayat presensi lokal yang tersimpan di browser ini?")) {
-            localStorage.removeItem('qr_presensi_teachers');
-            localStorage.removeItem('qr_presensi_attendance');
-            localStorage.removeItem('qr_presensi_settings');
-            
-            alert("Data lokal browser berhasil direset! Halaman akan dimuat ulang.");
-            window.location.reload();
-        }
-    });
-}
+window.resetDatabaseLocal = function() {
+    if (confirm("Apakah Anda yakin ingin menghapus seluruh data guru dan riwayat presensi lokal yang tersimpan di browser ini?")) {
+        localStorage.removeItem('qr_presensi_teachers');
+        localStorage.removeItem('qr_presensi_attendance');
+        localStorage.removeItem('qr_presensi_settings');
+        
+        alert("Data lokal browser berhasil direset! Halaman akan dimuat ulang.");
+        window.location.reload();
+    }
+};
 
 // ==========================================================================
 // TAB 4: LAPORAN & EXPORT
