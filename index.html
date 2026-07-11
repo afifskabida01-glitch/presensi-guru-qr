@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QRPresensi - Sistem Presensi Guru Modern</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Main Style -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- App Background & Ambient Glows -->
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+    <div class="ambient-glow glow-3"></div>
+
+    <div class="app-wrapper">
+        <!-- Top Navigation / Brand Header -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-qrcode-scale"></i>
+                    <i class="fa-solid fa-circle-check logo-check"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>QR<span>Presensi</span></h1>
+                    <p>Sistem Presensi Guru Berbasis QR Code</p>
+                </div>
+            </div>
+            <div class="header-meta">
+                <div class="time-widget">
+                    <i class="fa-regular fa-clock"></i>
+                    <span id="live-time">00:00:00</span>
+                </div>
+                <div class="date-widget">
+                    <i class="fa-regular fa-calendar"></i>
+                    <span id="live-date">Sabtu, 11 Juli 2026</span>
+                </div>
+                <div class="badge-storage-mode" id="storage-mode-indicator">
+                    <i class="fa-solid fa-database"></i>
+                    <span id="storage-mode-text">Mode: Lokal (Demo)</span>
+                </div>
+                <div class="badge-status-system">
+                    <span class="indicator-dot"></span>
+                    System Active
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Split Screen -->
+        <main class="main-container">
+            
+            <!-- LEFT PANEL: ADMIN DASHBOARD (70%) -->
+            <section class="admin-panel glass-card">
+                <!-- Sidebar Menu -->
+                <aside class="admin-sidebar">
+                    <div class="admin-profile">
+                        <div class="admin-avatar">
+                            <i class="fa-solid fa-user-shield"></i>
+                        </div>
+                        <div class="admin-info">
+                            <h3>Administrator</h3>
+                            <p>Admin Utama</p>
+                        </div>
+                    </div>
+                    <nav class="sidebar-nav">
+                        <ul>
+                            <li class="nav-item active" data-tab="dashboard">
+                                <i class="fa-solid fa-chart-line"></i>
+                                <span>Dashboard</span>
+                            </li>
+                            <li class="nav-item" data-tab="teachers">
+                                <i class="fa-solid fa-user-tie"></i>
+                                <span>Manajemen Guru</span>
+                            </li>
+                            <li class="nav-item" data-tab="schedule">
+                                <i class="fa-solid fa-calendar-days"></i>
+                                <span>Pengaturan Jadwal</span>
+                            </li>
+                            <li class="nav-item" data-tab="reports">
+                                <i class="fa-solid fa-file-invoice-dollar"></i>
+                                <span>Laporan & Export</span>
+                            </li>
+                        </ul>
+                    </nav>
+                </aside>
+
+                <!-- Admin Tab Contents Area -->
+                <div class="admin-content">
+                    
+                    <!-- TAB 1: DASHBOARD -->
+                    <div class="tab-content active" id="tab-dashboard">
+                        <div class="content-header">
+                            <h2>Ringkasan Kehadiran Hari Ini</h2>
+                            <p>Pantau presensi guru dan regenerasi QR Code harian di sini.</p>
+                        </div>
+
+                        <!-- Stats Grid -->
+                        <div class="stats-grid">
+                            <div class="stat-card glass-card">
+                                <div class="stat-icon bg-blue"><i class="fa-solid fa-users"></i></div>
+                                <div class="stat-data">
+                                    <h4 id="stat-total-teachers">0</h4>
+                                    <p>Total Guru</p>
+                                </div>
+                            </div>
+                            <div class="stat-card glass-card">
+                                <div class="stat-icon bg-green"><i class="fa-solid fa-user-check"></i></div>
+                                <div class="stat-data">
+                                    <h4 id="stat-present-teachers">0</h4>
+                                    <p>Hadir</p>
+                                </div>
+                            </div>
+                            <div class="stat-card glass-card">
+                                <div class="stat-icon bg-orange"><i class="fa-solid fa-user-clock"></i></div>
+                                <div class="stat-data">
+                                    <h4 id="stat-late-teachers">0</h4>
+                                    <p>Terlambat</p>
+                                </div>
+                            </div>
+                            <div class="stat-card glass-card">
+                                <div class="stat-icon bg-purple"><i class="fa-solid fa-chart-pie"></i></div>
+                                <div class="stat-data">
+                                    <h4 id="stat-pct-attendance">0%</h4>
+                                    <p>Tingkat Kehadiran</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Main Row: QR Generator and Live Feed -->
+                        <div class="dashboard-row">
+                            <!-- QR Code Panel -->
+                            <div class="qr-panel glass-card card-glow-purple">
+                                <div class="panel-header">
+                                    <h3><i class="fa-solid fa-qrcode"></i> QR Code Presensi Aktif</h3>
+                                    <span class="badge-live-pulse"><span class="pulse-ring"></span>Aktif</span>
+                                </div>
+                                <div class="qr-container">
+                                    <div class="qr-box" id="qr-code-display">
+                                        <!-- QR Rendered here by JS -->
+                                    </div>
+                                    <div class="qr-scan-line"></div>
+                                </div>
+                                <div class="qr-meta">
+                                    <p class="qr-token">Token: <span id="active-token">QR-20260711-X9A</span></p>
+                                    <button class="btn btn-primary" id="btn-regenerate-qr">
+                                        <i class="fa-solid fa-rotate"></i> Regenerasi QR Code
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Live Feed Scans -->
+                            <div class="feed-panel glass-card">
+                                <div class="panel-header">
+                                    <h3><i class="fa-solid fa-rss animate-rss"></i> Feed Presensi Terkini</h3>
+                                    <span class="sub-badge" id="feed-count">Terbaru</span>
+                                </div>
+                                <div class="feed-container" id="feed-scans-list">
+                                    <!-- Dynamic feed items go here -->
+                                    <div class="feed-empty">
+                                        <i class="fa-solid fa-clipboard-question"></i>
+                                        <p>Belum ada presensi yang tercatat hari ini.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: MANAJEMEN GURU -->
+                    <div class="tab-content" id="tab-teachers">
+                        <div class="content-header-row">
+                            <div class="content-header">
+                                <h2>Manajemen Data Guru</h2>
+                                <p>Kelola profil guru, informasi login simulasi, dan jam masuk operasional.</p>
+                            </div>
+                            <button class="btn btn-success" id="btn-add-teacher-modal">
+                                <i class="fa-solid fa-user-plus"></i> Tambah Guru Baru
+                            </button>
+                        </div>
+
+                        <!-- Search and Filter Bar -->
+                        <div class="filter-bar glass-card">
+                            <div class="search-box">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="search-teacher" placeholder="Cari guru berdasarkan nama atau NIP...">
+                            </div>
+                            <div class="filter-options">
+                                <select id="filter-picket-day">
+                                    <option value="">Semua Hari Piket</option>
+                                    <option value="Senin">Senin</option>
+                                    <option value="Selasa">Selasa</option>
+                                    <option value="Rabu">Rabu</option>
+                                    <option value="Kamis">Kamis</option>
+                                    <option value="Jumat">Jumat</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Teachers List Table -->
+                        <div class="table-container glass-card">
+                            <table class="data-table" id="teachers-table">
+                                <thead>
+                                    <tr>
+                                        <th>Inisial</th>
+                                        <th>Nama Lengkap</th>
+                                        <th>NIP</th>
+                                        <th>Hari Piket</th>
+                                        <th>Jam Masuk</th>
+                                        <th class="text-right">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="teachers-list-body">
+                                    <!-- Dynamic rows go here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: PENGATURAN JADWAL -->
+                    <div class="tab-content" id="tab-schedule">
+                        <div class="content-header">
+                            <h2>Pengaturan Jadwal & Jam Kerja</h2>
+                            <p>Konfigurasi parameter waktu kedatangan dan kebijakan toleransi keterlambatan sekolah.</p>
+                        </div>
+
+                        <div class="settings-grid">
+                            <!-- Global Rule Form -->
+                            <div class="settings-card glass-card">
+                                <h3><i class="fa-solid fa-sliders"></i> Aturan Waktu Global</h3>
+                                <form id="form-global-settings" class="settings-form">
+                                    <div class="form-group">
+                                        <label for="set-default-checkin">Jam Masuk Utama (Default)</label>
+                                        <input type="time" id="set-default-checkin" value="07:00" required>
+                                        <span class="form-help">Jam acuan masuk sekolah jika guru tidak diatur khusus.</span>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="set-tolerance-minutes">Batas Toleransi Keterlambatan (Menit)</label>
+                                        <div class="input-unit-group">
+                                            <input type="number" id="set-tolerance-minutes" min="0" max="60" value="15" required>
+                                            <span class="unit-label">Menit</span>
+                                        </div>
+                                        <span class="form-help">Waktu toleransi sebelum dicatat terlambat (misal: 07:15).</span>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Hari Aktif Sekolah / Piket</label>
+                                        <div class="checkbox-group">
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" name="active-days" value="Senin" checked> Senin
+                                            </label>
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" name="active-days" value="Selasa" checked> Selasa
+                                            </label>
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" name="active-days" value="Rabu" checked> Rabu
+                                            </label>
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" name="active-days" value="Kamis" checked> Kamis
+                                            </label>
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" name="active-days" value="Jumat" checked> Jumat
+                                            </label>
+                                            <label class="checkbox-label">
+                                                <input type="checkbox" name="active-days" value="Sabtu"> Sabtu
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-block">
+                                        <i class="fa-solid fa-floppy-disk"></i> Simpan Konfigurasi
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Explanation Card -->
+                            <div class="settings-card glass-card info-card">
+                                <h3><i class="fa-solid fa-circle-info"></i> Skema Presensi QR Code</h3>
+                                <div class="info-content">
+                                    <p>Sistem ini dirancang untuk bekerja secara transparan dengan alur sebagai berikut:</p>
+                                    <ol>
+                                        <li><strong>QR Code Harian</strong>: Admin menghasilkan QR Code dengan token terenkripsi unik setiap hari untuk mencegah kecurangan (misalnya screenshot QR lama).</li>
+                                        <li><strong>Waktu Scan Real-time</strong>: Saat guru memindai QR Code, waktu server/sistem dicatat.</li>
+                                        <li><strong>Kalkulasi Otomatis</strong>:
+                                            <ul>
+                                                <li>Waktu Scan &le; Jam Masuk Guru + Toleransi &rarr; <strong>Tepat Waktu</strong></li>
+                                                <li>Waktu Scan &gt; Jam Masuk Guru + Toleransi &rarr; <strong>Terlambat</strong></li>
+                                            </ul>
+                                        </li>
+                                        <li><strong>Jadwal Piket</strong>: Guru yang terjadwal piket memiliki jam kedatangan default yang dapat disesuaikan pada tab Manajemen Guru untuk tugas pagi.</li>
+                                    </ol>
+                                    <div class="warning-alert">
+                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                        <span>Perubahan aturan waktu akan langsung berdampak pada kalkulasi presensi baru berikutnya hari ini.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: LAPORAN & MONITORING -->
+                    <div class="tab-content" id="tab-reports">
+                        <div class="content-header-row">
+                            <div class="content-header">
+                                <h2>Laporan Kehadiran & Eksport Data</h2>
+                                <p>Tinjau ringkasan kehadiran bulanan dan unduh berkas untuk penyerahan ke Kepala Sekolah.</p>
+                            </div>
+                            <div class="export-actions">
+                                <button class="btn btn-excel" id="btn-export-csv">
+                                    <i class="fa-solid fa-file-csv"></i> Unduh CSV (Excel)
+                                </button>
+                                <button class="btn btn-pdf" id="btn-export-pdf">
+                                    <i class="fa-solid fa-file-pdf"></i> Cetak / PDF Laporan
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Report Filters -->
+                        <div class="filter-bar glass-card">
+                            <div class="filter-options">
+                                <label for="select-report-month">Pilih Bulan & Tahun:</label>
+                                <select id="select-report-month">
+                                    <option value="2026-07" selected>Juli 2026</option>
+                                    <option value="2026-06">Juni 2026</option>
+                                    <option value="2026-05">Mei 2026</option>
+                                </select>
+                            </div>
+                            <div class="legend-indicators">
+                                <span class="legend-item"><span class="legend-color legend-present"></span> Tepat Waktu</span>
+                                <span class="legend-item"><span class="legend-color legend-late"></span> Terlambat</span>
+                            </div>
+                        </div>
+
+                        <!-- Custom Mini Chart Visualization -->
+                        <div class="chart-container glass-card">
+                            <h3>Visualisasi Tren Keterlambatan Bulanan</h3>
+                            <div class="bar-chart" id="tardiness-bar-chart">
+                                <!-- Generated Dynamically via CSS/HTML in JS -->
+                            </div>
+                        </div>
+
+                        <!-- Report Summary Table -->
+                        <div class="table-container glass-card">
+                            <table class="data-table" id="report-summary-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nama Guru</th>
+                                        <th>NIP</th>
+                                        <th class="text-center">Hadir</th>
+                                        <th class="text-center">Tepat Waktu</th>
+                                        <th class="text-center">Terlambat</th>
+                                        <th class="text-center">Absen/Alpa</th>
+                                        <th class="text-right">Skor Kehadiran</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="report-list-body">
+                                    <!-- Dynamic reports calculation -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- RIGHT PANEL: TEACHER SIMULATOR (30%) -->
+            <section class="simulator-panel">
+                <div class="simulator-sticky">
+                    <div class="sim-label">
+                        <i class="fa-solid fa-gamepad"></i> SIMULATOR GURU (MOBILE)
+                    </div>
+                    
+                    <!-- Phone Frame -->
+                    <div class="phone-frame">
+                        <div class="phone-camera-notch"></div>
+                        <div class="phone-screen">
+                            
+                            <!-- Phone Top Status Bar -->
+                            <div class="phone-status-bar">
+                                <span id="phone-time">22:25</span>
+                                <div class="status-icons">
+                                    <i class="fa-solid fa-signal"></i>
+                                    <i class="fa-solid fa-wifi"></i>
+                                    <i class="fa-solid fa-battery-three-quarters"></i>
+                                </div>
+                            </div>
+
+                            <!-- Phone Body App Content -->
+                            <div class="phone-app">
+                                <!-- App Logo Header inside Simulator -->
+                                <div class="phone-header">
+                                    <div class="phone-brand">
+                                        <i class="fa-solid fa-qrcode"></i>
+                                        <span>QRPresensi Guru</span>
+                                    </div>
+                                    <div class="phone-notif-bell">
+                                        <i class="fa-regular fa-bell"></i>
+                                    </div>
+                                </div>
+
+                                <div class="phone-scroll-content">
+                                    <!-- Step 1: Account Selector -->
+                                    <div class="sim-card card-dark">
+                                        <label for="select-sim-teacher" class="sim-field-label">Pilih Akun Guru:</label>
+                                        <div class="custom-select-wrapper">
+                                            <select id="select-sim-teacher">
+                                                <!-- Dynamic options -->
+                                            </select>
+                                        </div>
+                                        <div class="teacher-detail-badge" id="sim-teacher-badge">
+                                            <div class="teacher-initials" id="sim-teacher-initials">--</div>
+                                            <div class="teacher-meta-text">
+                                                <h4 id="sim-teacher-name">Pilih Guru</h4>
+                                                <p id="sim-teacher-nip">NIP: -</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 2: Today's Schedule Card -->
+                                    <div class="sim-card card-schedule">
+                                        <div class="card-schedule-header">
+                                            <span>Jadwal Hari Ini</span>
+                                            <span class="badge-day" id="sim-today-day">Sabtu</span>
+                                        </div>
+                                        <div class="schedule-times">
+                                            <div class="time-block">
+                                                <span class="time-label">Jam Masuk</span>
+                                                <span class="time-value" id="sim-checkin-time">07:00</span>
+                                            </div>
+                                            <div class="time-block">
+                                                <span class="time-label">Piket Pagi</span>
+                                                <span class="time-value" id="sim-picket-status">Tidak</span>
+                                            </div>
+                                        </div>
+                                        <div class="attendance-status-box" id="sim-attendance-status-box">
+                                            <i class="fa-solid fa-circle-question"></i>
+                                            <span id="sim-attendance-status-text">Belum Presensi Hari Ini</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 3: Scan QR Button -->
+                                    <div class="scan-action-area">
+                                        <button class="btn-scan" id="btn-trigger-scan">
+                                            <div class="scan-icon-container">
+                                                <i class="fa-solid fa-qrcode"></i>
+                                                <div class="scan-laser-line"></div>
+                                            </div>
+                                            <span>Scan QR Code Admin</span>
+                                        </button>
+                                        <p class="scan-instruction">Ketuk tombol di atas untuk mensimulasikan pemindaian kamera pada QR Code aktif Admin.</p>
+                                    </div>
+
+                                    <!-- Step 4: Personal Log -->
+                                    <div class="sim-card card-log">
+                                        <h4>Riwayat Kehadiran Anda</h4>
+                                        <div class="personal-log-list" id="sim-personal-logs">
+                                            <!-- Logs go here -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Camera Scan Animation Overlay (Hidden initially) -->
+                                <div class="scanner-overlay hidden" id="scanner-view-overlay">
+                                    <div class="scanner-header">
+                                        <button class="btn-close-scanner" id="btn-close-scanner">
+                                            <i class="fa-solid fa-xmark"></i>
+                                        </button>
+                                        <span>Memindai QR Code...</span>
+                                    </div>
+                                    <div class="scanner-viewport">
+                                        <div class="scanner-target-box">
+                                            <div class="corner top-left"></div>
+                                            <div class="corner top-right"></div>
+                                            <div class="corner bottom-left"></div>
+                                            <div class="corner bottom-right"></div>
+                                            <div class="scanner-laser"></div>
+                                        </div>
+                                        <p class="scanner-tip">Arahkan kamera simulator ke QR Code Admin</p>
+                                    </div>
+                                    <div class="scanner-fake-camera"></div>
+                                </div>
+
+                                <!-- Scan Success Dialog (Hidden initially) -->
+                                <div class="success-dialog-overlay hidden" id="success-dialog">
+                                    <div class="success-card glass-card">
+                                        <div class="success-icon animate-success">
+                                            <i class="fa-solid fa-circle-check"></i>
+                                        </div>
+                                        <h3>Presensi Berhasil!</h3>
+                                        <p id="success-message">Selamat, Anda berhasil mencatat kehadiran tepat waktu.</p>
+                                        <div class="success-details">
+                                            <div class="detail-row">
+                                                <span>Waktu:</span>
+                                                <strong id="success-time">07:05:12</strong>
+                                            </div>
+                                            <div class="detail-row">
+                                                <span>Status:</span>
+                                                <span class="badge" id="success-status-badge">Tepat Waktu</span>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-success btn-block" id="btn-close-success">OK</button>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- MODAL ADD/EDIT TEACHER (Hidden by default) -->
+    <div class="modal-overlay hidden" id="teacher-modal">
+        <div class="modal-card glass-card animate-modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Tambah Data Guru Baru</h3>
+                <button class="btn-close-modal" id="btn-close-teacher-modal">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form id="form-teacher">
+                <input type="hidden" id="teacher-id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="teacher-name">Nama Lengkap Guru</label>
+                        <input type="text" id="teacher-name" placeholder="Contoh: Budi Santoso, S.Pd." required>
+                    </div>
+                    <div class="form-group">
+                        <label for="teacher-nip">NIP (Nomor Induk Pegawai)</label>
+                        <input type="text" id="teacher-nip" placeholder="Contoh: 198203112009041003" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="teacher-checkin">Jam Masuk Khusus</label>
+                            <input type="time" id="teacher-checkin" value="07:00">
+                        </div>
+                        <div class="form-group">
+                            <label for="teacher-picket">Hari Piket Utama</label>
+                            <select id="teacher-picket">
+                                <option value="Tidak Ada">Tidak Ada</option>
+                                <option value="Senin">Senin</option>
+                                <option value="Selasa">Selasa</option>
+                                <option value="Rabu">Rabu</option>
+                                <option value="Kamis">Kamis</option>
+                                <option value="Jumat">Jumat</option>
+                                <option value="Sabtu">Sabtu</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-teacher">Batal</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save-teacher">Simpan Data</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDK (Compat Version untuk kemudahan integrasi Vanilla JS) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="qr-helper.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
