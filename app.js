@@ -3,19 +3,15 @@
  * Mengelola state guru, pengaturan jadwal, riwayat presensi harian, dan simulator mobile.
  * Sistem bersih tanpa data demo, siap digunakan secara nyata dengan Firebase atau LocalStorage.
  */
-
 // ==========================================================================
 // STATE MANAGEMENT & DATA AWAL (BERSIH / KOSONG)
 // ==========================================================================
-
 // Memulai dengan daftar guru kosong untuk diisi oleh Admin secara nyata
 const DEFAULT_TEACHERS = [];
-
 // Riwayat presensi kosong untuk memulai catatan baru
 function generateHistoricalLogs() {
     return [];
 }
-
 let state = {
     teachers: DEFAULT_TEACHERS,
     attendance: [],
@@ -26,16 +22,13 @@ let state = {
     },
     activeToken: ""
 };
-
 // Database state variable
 let db = null;
 let isFirebaseActive = false;
-
 // Inisialisasi Database (Firebase vs LocalStorage)
 async function initDatabase() {
     const indicatorText = document.getElementById("storage-mode-text");
     const indicatorBox = document.getElementById("storage-mode-indicator");
-
     // Deteksi apakah konfigurasi Firebase valid dan bukan placeholder
     if (window.firebaseConfig && 
         window.firebaseConfig.apiKey && 
@@ -46,18 +39,15 @@ async function initDatabase() {
             db = firebase.firestore();
             isFirebaseActive = true;
             console.log("Firebase Firestore initialized successfully.");
-
             if (indicatorText && indicatorBox) {
                 indicatorText.textContent = "Mode: Cloud (Firebase)";
                 indicatorBox.classList.add("cloud");
             }
-
             // Inisialisasi pengaturan default di Firestore jika belum ada
             await seedFirestoreIfEmpty();
             
             // Dengarkan perubahan database secara realtime
             initFirebaseListeners();
-
         } catch (e) {
             console.error("Gagal inisialisasi Firebase. Beralih ke LocalStorage fallback.", e);
             setupLocalStorageFallback();
@@ -67,7 +57,6 @@ async function initDatabase() {
         setupLocalStorageFallback();
     }
 }
-
 // Fallback jika Firebase tidak aktif
 function setupLocalStorageFallback() {
     // =====================================================================
@@ -75,7 +64,6 @@ function setupLocalStorageFallback() {
     // =====================================================================
     const APP_VERSION = "prod-2.0";
     const storedVersion = localStorage.getItem('qr_presensi_version');
-
     if (storedVersion !== APP_VERSION) {
         // Versi tidak cocok (data lama / data demo) → hapus semua
         console.log("Versi cache berbeda. Menghapus data lama dan memulai bersih...");
@@ -85,7 +73,6 @@ function setupLocalStorageFallback() {
         localStorage.setItem('qr_presensi_version', APP_VERSION);
     }
     // =====================================================================
-
     state.teachers = JSON.parse(localStorage.getItem('qr_presensi_teachers')) || DEFAULT_TEACHERS;
     state.attendance = JSON.parse(localStorage.getItem('qr_presensi_attendance')) || generateHistoricalLogs();
     state.settings = JSON.parse(localStorage.getItem('qr_presensi_settings')) || {
@@ -100,7 +87,6 @@ function setupLocalStorageFallback() {
         indicatorText.textContent = "Mode: Lokal";
         indicatorBox.classList.remove("cloud");
     }
-
     // Render UI secara konvensional
     renderDashboardStats();
     renderLiveFeed();
@@ -109,7 +95,6 @@ function setupLocalStorageFallback() {
     updateSimulatorTeacherProfile();
     renderReports();
 }
-
 // Menyimpan ke LocalStorage (hanya digunakan pada mode fallback)
 function saveStateToLocal() {
     if (!isFirebaseActive) {
@@ -118,11 +103,9 @@ function saveStateToLocal() {
         localStorage.setItem('qr_presensi_settings', JSON.stringify(state.settings));
     }
 }
-
 // ==========================================================================
 // DATABASE FIREBASE ACTIONS (REAL-TIME READ/WRITE)
 // ==========================================================================
-
 async function seedFirestoreIfEmpty() {
     try {
         // Untuk produksi bersih, kita HANYA menginisialisasi setelan global default jika belum ada.
@@ -140,7 +123,6 @@ async function seedFirestoreIfEmpty() {
         console.error("Error seeding Firestore settings:", e);
     }
 }
-
 function initFirebaseListeners() {
     // 1. Listeners Data Guru
     db.collection("teachers").onSnapshot(snapshot => {
@@ -155,7 +137,6 @@ function initFirebaseListeners() {
         updateSimulatorTeacherProfile();
         renderReports();
     }, err => console.error("Error realtime teachers:", err));
-
     // 2. Listeners Data Pengaturan
     db.collection("settings").doc("global").onSnapshot(doc => {
         if (doc.exists) {
@@ -169,11 +150,9 @@ function initFirebaseListeners() {
             document.querySelectorAll("input[name='active-days']").forEach(cb => {
                 cb.checked = state.settings.picketDays.includes(cb.value);
             });
-
             updateSimulatorTeacherProfile();
         }
     }, err => console.error("Error realtime settings:", err));
-
     // 3. Listeners Data Presensi
     db.collection("attendance").onSnapshot(snapshot => {
         const list = [];
@@ -188,7 +167,6 @@ function initFirebaseListeners() {
         renderReports();
     }, err => console.error("Error realtime attendance:", err));
 }
-
 // CRUD Wrappers
 async function saveTeacher(teacher) {
     if (isFirebaseActive) {
@@ -207,7 +185,6 @@ async function saveTeacher(teacher) {
         renderReports();
     }
 }
-
 async function deleteTeacherFromDb(id) {
     if (isFirebaseActive) {
         await db.collection("teachers").doc(id).delete();
@@ -220,7 +197,6 @@ async function deleteTeacherFromDb(id) {
         renderReports();
     }
 }
-
 async function saveSettings(settings) {
     if (isFirebaseActive) {
         await db.collection("settings").doc("global").set(settings);
@@ -231,7 +207,6 @@ async function saveSettings(settings) {
         alert("Konfigurasi global berhasil disimpan secara lokal!");
     }
 }
-
 async function addAttendanceLog(log) {
     if (isFirebaseActive) {
         await db.collection("attendance").doc(log.id).set(log);
@@ -244,11 +219,9 @@ async function addAttendanceLog(log) {
         renderReports();
     }
 }
-
 // ==========================================================================
 // KRONOLOGI WAKTU & TOKEN HARI INI
 // ==========================================================================
-
 function updateClock() {
     const now = new Date();
     const formatTime = String(now.getHours()).padStart(2, '0') + ":" + 
@@ -264,16 +237,13 @@ function updateClock() {
     const yearNum = now.getFullYear();
     
     const formatDate = `${dayName}, ${dateNum} ${monthName} ${yearNum}`;
-
     const liveTimeEl = document.getElementById("live-time");
     const liveDateEl = document.getElementById("live-date");
     const phoneTimeEl = document.getElementById("phone-time");
-
     if (liveTimeEl) liveTimeEl.textContent = formatTime;
     if (liveDateEl) liveDateEl.textContent = formatDate;
     if (phoneTimeEl) phoneTimeEl.textContent = formatTime.substring(0, 5);
 }
-
 function generateNewToken() {
     const now = new Date();
     const dateStr = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
@@ -292,15 +262,12 @@ function generateNewToken() {
         qrDisplay.innerHTML = QRHelper.generateSVG(state.activeToken);
     }
 }
-
 // ==========================================================================
 // TAMPILAN TAB ADMIN
 // ==========================================================================
-
 function initTabNavigation() {
     const navItems = document.querySelectorAll(".nav-item");
     const tabContents = document.querySelectorAll(".tab-content");
-
     navItems.forEach(item => {
         item.addEventListener("click", () => {
             const targetTab = item.getAttribute("data-tab");
@@ -322,40 +289,32 @@ function initTabNavigation() {
         });
     });
 }
-
 // ==========================================================================
 // TAB 1: RENDER DASHBOARD
 // ==========================================================================
-
 function getTodayString() {
     const now = new Date();
     return now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
 }
-
 function getTodayAttendance() {
     const todayStr = getTodayString();
     return state.attendance.filter(log => log.date === todayStr);
 }
-
 function renderDashboardStats() {
     const totalTeachers = state.teachers.length;
     const todayLogs = getTodayAttendance();
     const presentCount = todayLogs.length;
     const lateCount = todayLogs.filter(log => log.status === "Terlambat").length;
     const attendancePct = totalTeachers > 0 ? Math.round((presentCount / totalTeachers) * 100) : 0;
-
     document.getElementById("stat-total-teachers").textContent = totalTeachers;
     document.getElementById("stat-present-teachers").textContent = presentCount;
     document.getElementById("stat-late-teachers").textContent = lateCount;
     document.getElementById("stat-pct-attendance").textContent = `${attendancePct}%`;
 }
-
 function renderLiveFeed() {
     const feedList = document.getElementById("feed-scans-list");
     if (!feedList) return;
-
     const todayLogs = getTodayAttendance().sort((a, b) => b.time.localeCompare(a.time));
-
     if (todayLogs.length === 0) {
         feedList.innerHTML = `
             <div class="feed-empty">
@@ -365,7 +324,6 @@ function renderLiveFeed() {
         `;
         return;
     }
-
     feedList.innerHTML = todayLogs.map(log => {
         const initials = log.teacherName.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
         const badgeClass = log.status === "Terlambat" ? "badge-warning" : "badge-success";
@@ -388,25 +346,20 @@ function renderLiveFeed() {
         `;
     }).join("");
 }
-
 // ==========================================================================
 // TAB 2: MANAJEMEN DATA GURU (CRUD)
 // ==========================================================================
-
 let searchFilter = "";
 let dayFilter = "";
-
 function renderTeachersTable() {
     const listBody = document.getElementById("teachers-list-body");
     if (!listBody) return;
-
     let filteredTeachers = state.teachers.filter(teacher => {
         const matchesSearch = teacher.name.toLowerCase().includes(searchFilter.toLowerCase()) || 
                               teacher.nip.includes(searchFilter);
         const matchesDay = dayFilter === "" || teacher.picket === dayFilter;
         return matchesSearch && matchesDay;
     });
-
     if (filteredTeachers.length === 0) {
         listBody.innerHTML = `
             <tr>
@@ -417,7 +370,6 @@ function renderTeachersTable() {
         `;
         return;
     }
-
     listBody.innerHTML = filteredTeachers.map(teacher => {
         const initials = teacher.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
         return `
@@ -443,7 +395,6 @@ function renderTeachersTable() {
         `;
     }).join("");
 }
-
 // Handlers pencarian & filter
 const searchInput = document.getElementById("search-teacher");
 if (searchInput) {
@@ -452,7 +403,6 @@ if (searchInput) {
         renderTeachersTable();
     });
 }
-
 const picketFilter = document.getElementById("filter-picket-day");
 if (picketFilter) {
     picketFilter.addEventListener("change", (e) => {
@@ -460,12 +410,10 @@ if (picketFilter) {
         renderTeachersTable();
     });
 }
-
 // Modal Form Operations
 const teacherModal = document.getElementById("teacher-modal");
 const formTeacher = document.getElementById("form-teacher");
 const modalTitle = document.getElementById("modal-title");
-
 const addTeacherBtn = document.getElementById("btn-add-teacher-modal");
 if (addTeacherBtn) {
     addTeacherBtn.addEventListener("click", () => {
@@ -476,21 +424,18 @@ if (addTeacherBtn) {
         teacherModal.classList.remove("hidden");
     });
 }
-
 const closeModalBtn = document.getElementById("btn-close-teacher-modal");
 if (closeModalBtn) {
     closeModalBtn.addEventListener("click", () => {
         teacherModal.classList.add("hidden");
     });
 }
-
 const cancelModalBtn = document.getElementById("btn-cancel-teacher");
 if (cancelModalBtn) {
     cancelModalBtn.addEventListener("click", () => {
         teacherModal.classList.add("hidden");
     });
 }
-
 if (formTeacher) {
     formTeacher.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -499,7 +444,6 @@ if (formTeacher) {
         const nip = document.getElementById("teacher-nip").value;
         const checkIn = document.getElementById("teacher-checkin").value;
         const picket = document.getElementById("teacher-picket").value;
-
         const teacherData = {
             id: id || "t" + (new Date().getTime()),
             name,
@@ -507,36 +451,29 @@ if (formTeacher) {
             checkIn,
             picket
         };
-
         await saveTeacher(teacherData);
         teacherModal.classList.add("hidden");
     });
 }
-
 window.openEditTeacher = function(id) {
     const teacher = state.teachers.find(t => t.id === id);
     if (!teacher) return;
-
     modalTitle.textContent = "Edit Informasi Guru";
     document.getElementById("teacher-id").value = teacher.id;
     document.getElementById("teacher-name").value = teacher.name;
     document.getElementById("teacher-nip").value = teacher.nip;
     document.getElementById("teacher-checkin").value = teacher.checkIn;
     document.getElementById("teacher-picket").value = teacher.picket;
-
     teacherModal.classList.remove("hidden");
 };
-
 window.deleteTeacher = async function(id) {
     if (confirm("Apakah Anda yakin ingin menghapus data guru ini? Riwayat presensi di database tetap disimpan.")) {
         await deleteTeacherFromDb(id);
     }
 };
-
 // ==========================================================================
 // TAB 3: PENGATURAN GLOBAL
 // ==========================================================================
-
 const formSettings = document.getElementById("form-global-settings");
 if (formSettings) {
     formSettings.addEventListener("submit", async (e) => {
@@ -548,12 +485,10 @@ if (formSettings) {
         document.querySelectorAll("input[name='active-days']:checked").forEach(cb => {
             picketDays.push(cb.value);
         });
-
         const newSettings = { defaultCheckIn: checkIn, toleranceMinutes: tolerance, picketDays };
         await saveSettings(newSettings);
     });
 }
-
 window.resetDatabaseLocal = function() {
     if (confirm("Apakah Anda yakin ingin menghapus seluruh data guru dan riwayat presensi lokal yang tersimpan di browser ini?")) {
         localStorage.removeItem('qr_presensi_teachers');
@@ -564,18 +499,14 @@ window.resetDatabaseLocal = function() {
         window.location.reload();
     }
 };
-
 // ==========================================================================
 // TAB 4: LAPORAN & EXPORT
 // ==========================================================================
-
 function renderReports() {
     const tbody = document.getElementById("report-list-body");
     if (!tbody) return;
-
     const selectMonth = document.getElementById("select-report-month").value;
     const monthlyLogs = state.attendance.filter(log => log.date.startsWith(selectMonth));
-
     const reportData = state.teachers.map(teacher => {
         const teacherLogs = monthlyLogs.filter(log => log.teacherId === teacher.id);
         const presentCount = teacherLogs.length;
@@ -589,7 +520,6 @@ function renderReports() {
         
         const absentCount = Math.max(0, totalWorkDays - presentCount);
         const score = totalWorkDays > 0 ? Math.round(((promptCount * 100) + (lateCount * 50)) / totalWorkDays) : 0;
-
         return {
             name: teacher.name,
             nip: teacher.nip,
@@ -600,7 +530,6 @@ function renderReports() {
             score: score
         };
     });
-
     tbody.innerHTML = reportData.map(r => `
         <tr>
             <td><strong>${r.name}</strong></td>
@@ -616,29 +545,22 @@ function renderReports() {
             </td>
         </tr>
     `).join("");
-
     renderChartData(reportData);
 }
-
 function renderChartData(reportData) {
     const chartContainer = document.getElementById("tardiness-bar-chart");
     if (!chartContainer) return;
-
     if (reportData.length === 0) {
         chartContainer.innerHTML = `<p style="color: var(--text-muted); margin: auto; padding: 24px;">Belum ada data untuk menampilkan grafik.</p>`;
         return;
     }
-
     const topTeachers = reportData.slice(0, 5);
-
     // Dapatkan max hari kehadiran untuk kalkulasi tinggi grafis secara dinamis
     const maxDays = Math.max(...reportData.map(t => t.present), 1);
-
     chartContainer.innerHTML = topTeachers.map(t => {
         const presentHeight = (t.prompt / maxDays) * 100;
         const lateHeight = (t.late / maxDays) * 100;
         const nameShort = t.name.split(",")[0];
-
         return `
             <div class="chart-bar-wrapper">
                 <div class="chart-bar-group">
@@ -650,7 +572,6 @@ function renderChartData(reportData) {
         `;
     }).join("");
 }
-
 // CSV Export Handler
 const exportCsvBtn = document.getElementById("btn-export-csv");
 if (exportCsvBtn) {
@@ -674,7 +595,6 @@ if (exportCsvBtn) {
         document.body.removeChild(link);
     });
 }
-
 // PDF Export Handler
 const exportPdfBtn = document.getElementById("btn-export-pdf");
 if (exportPdfBtn) {
@@ -682,30 +602,24 @@ if (exportPdfBtn) {
         window.print();
     });
 }
-
 const monthSelect = document.getElementById("select-report-month");
 if (monthSelect) {
     monthSelect.addEventListener("change", renderReports);
 }
-
 // ==========================================================================
 // SIMULATOR GURU (MOBILE PANELS)
 // ==========================================================================
-
 function populateSimulatorTeacherDropdown() {
     const select = document.getElementById("select-sim-teacher");
     if (!select) return;
-
     if (state.teachers.length === 0) {
         select.innerHTML = `<option value="">-- Belum Ada Guru --</option>`;
         return;
     }
-
     select.innerHTML = state.teachers.map(t => `
         <option value="${t.id}">${t.name}</option>
     `).join("");
 }
-
 function updateSimulatorTeacherProfile() {
     const select = document.getElementById("select-sim-teacher");
     const initialsEl = document.getElementById("sim-teacher-initials");
@@ -714,7 +628,6 @@ function updateSimulatorTeacherProfile() {
     const statusBox = document.getElementById("sim-attendance-status-box");
     const statusText = document.getElementById("sim-attendance-status-text");
     const btnScan = document.getElementById("btn-trigger-scan");
-
     if (!select || !select.value) {
         // Bersihkan tampilan simulator jika guru kosong
         if (initialsEl) initialsEl.textContent = "--";
@@ -735,10 +648,8 @@ function updateSimulatorTeacherProfile() {
         if (list) list.innerHTML = `<p style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 10px;">Belum ada riwayat.</p>`;
         return;
     }
-
     const teacher = state.teachers.find(t => t.id === select.value);
     if (!teacher) return;
-
     const initials = teacher.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
     if (initialsEl) initialsEl.textContent = initials;
     if (nameEl) nameEl.textContent = teacher.name;
@@ -748,7 +659,6 @@ function updateSimulatorTeacherProfile() {
     const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
     const todayIndex = new Date().getDay();
     const todayName = days[todayIndex];
-
     const todayDayEl = document.getElementById("sim-today-day");
     if (todayDayEl) todayDayEl.textContent = todayName;
     
@@ -758,7 +668,6 @@ function updateSimulatorTeacherProfile() {
     const isPicket = teacher.picket === todayName;
     const picketStatusEl = document.getElementById("sim-picket-status");
     if (picketStatusEl) picketStatusEl.textContent = isPicket ? "Ya (Piket)" : "Tidak";
-
     // Cek Status Kehadiran Hari ini
     const todayStr = getTodayString();
     const checkedLog = state.attendance.find(log => log.teacherId === teacher.id && log.date === todayStr);
@@ -782,23 +691,18 @@ function updateSimulatorTeacherProfile() {
             btnScan.style.cursor = "pointer";
         }
     }
-
     renderSimulatorPersonalLogs(teacher.id);
 }
-
 function renderSimulatorPersonalLogs(teacherId) {
     const list = document.getElementById("sim-personal-logs");
     if (!list) return;
-
     const teacherLogs = state.attendance
         .filter(log => log.teacherId === teacherId)
         .sort((a, b) => b.date.localeCompare(a.date));
-
     if (teacherLogs.length === 0) {
         list.innerHTML = `<p style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 10px;">Belum ada riwayat.</p>`;
         return;
     }
-
     list.innerHTML = teacherLogs.map(log => {
         const badgeColor = log.status === "Terlambat" ? "var(--color-warning)" : "var(--color-success)";
         return `
@@ -812,18 +716,15 @@ function renderSimulatorPersonalLogs(teacherId) {
         `;
     }).join("");
 }
-
 // Dropdown handler
 const simTeacherSelect = document.getElementById("select-sim-teacher");
 if (simTeacherSelect) {
     simTeacherSelect.addEventListener("change", updateSimulatorTeacherProfile);
 }
-
 // Scanner View Overlay
 const scannerOverlay = document.getElementById("scanner-view-overlay");
 const btnTriggerScan = document.getElementById("btn-trigger-scan");
 const btnCloseScanner = document.getElementById("btn-close-scanner");
-
 if (btnTriggerScan) {
     btnTriggerScan.addEventListener("click", () => {
         if (btnTriggerScan.disabled) return;
@@ -835,36 +736,30 @@ if (btnTriggerScan) {
         }, 2200);
     });
 }
-
 if (btnCloseScanner) {
     btnCloseScanner.addEventListener("click", () => {
         scannerOverlay.classList.add("hidden");
     });
 }
-
 // Dialog Sukses
 const successDialog = document.getElementById("success-dialog");
 const btnCloseSuccess = document.getElementById("btn-close-success");
-
 async function performSuccessfulScan() {
     scannerOverlay.classList.add("hidden");
     
     const select = document.getElementById("select-sim-teacher");
     const teacher = state.teachers.find(t => t.id === select.value);
     if (!teacher) return;
-
     const now = new Date();
     const hour = String(now.getHours()).padStart(2, '0');
     const min = String(now.getMinutes()).padStart(2, '0');
     const sec = String(now.getSeconds()).padStart(2, '0');
     const timeStr = `${hour}:${min}:${sec}`;
     const dateStr = getTodayString();
-
     const checkInLimit = new Date(`${dateStr}T${teacher.checkIn}`);
     const checkInActual = new Date(`${dateStr}T${timeStr}`);
     const diffMin = (checkInActual - checkInLimit) / (1000 * 60);
     const status = diffMin > state.settings.toleranceMinutes ? "Terlambat" : "Tepat Waktu";
-
     const newLog = {
         id: `l-${dateStr}-${teacher.id}-${now.getTime()}`,
         teacherId: teacher.id,
@@ -874,10 +769,8 @@ async function performSuccessfulScan() {
         time: timeStr,
         status: status
     };
-
     // Tulis ke Database (Cloud Firebase / Local)
     await addAttendanceLog(newLog);
-
     // Tampilkan notifikasi modal sukses
     document.getElementById("success-time").textContent = timeStr;
     const badge = document.getElementById("success-status-badge");
@@ -890,25 +783,20 @@ async function performSuccessfulScan() {
         badge.className = "badge badge-success";
         document.getElementById("success-message").textContent = `Selamat, Anda berhasil mencatat kehadiran tepat waktu untuk hari ini!`;
     }
-
     successDialog.classList.remove("hidden");
 }
-
 if (btnCloseSuccess) {
     btnCloseSuccess.addEventListener("click", () => {
         successDialog.classList.add("hidden");
     });
 }
-
 // ==========================================================================
 // INISIALISASI APLIKASI
 // ==========================================================================
-
 window.addEventListener("DOMContentLoaded", async () => {
     // 1. Jalankan Jam dinamis
     updateClock();
     setInterval(updateClock, 1000);
-
     // 2. Generate token QR Code harian pertama
     generateNewToken();
     const btnRegenQr = document.getElementById("btn-regenerate-qr");
@@ -920,10 +808,8 @@ window.addEventListener("DOMContentLoaded", async () => {
             setTimeout(() => display.classList.remove("fadeIn"), 300);
         });
     }
-
     // 3. Tab Navigasi Admin
     initTabNavigation();
-
     // 4. Inisialisasi Database (Firebase vs Local)
     await initDatabase();
 });
