@@ -60,7 +60,7 @@ function setupFirebaseListeners() {
         if(state.admins.length === 0) {
             db.collection("admins").doc("admin1").set({ id: "admin1", username: "admin", password: "123", role: "superadmin" });
         }
-        if (currentUser && currentUser.role === 'admin') renderAdminsTable();
+        triggerAdminRender();
     });
 
     // 2. Listen Teachers
@@ -69,41 +69,66 @@ function setupFirebaseListeners() {
         snapshot.forEach((doc) => state.teachers.push(doc.data()));
         
         if (!currentUser) renderLoginDropdown();
-        if (currentUser && currentUser.role === 'admin') {
-            renderTeachersTable();
-            populateTeacherDropdownsAdmin();
-            renderDashboardStats();
-        }
+        triggerAdminRender();
     });
 
     // 3. Listen Schedules
     db.collection("schedules").onSnapshot((snapshot) => {
         state.schedules = [];
         snapshot.forEach((doc) => state.schedules.push(doc.data()));
-        if (currentUser && currentUser.role === 'admin') populateJadwalGrid();
+        triggerAdminRender();
     });
 
     // 4. Listen Attendance (real-time di semua perangkat)
     db.collection("attendance").onSnapshot((snapshot) => {
         state.attendance = [];
         snapshot.forEach((doc) => state.attendance.push(doc.data()));
-        
-        if (currentUser && currentUser.role === 'admin') {
-            renderDashboardStats();
-            renderLiveFeed();
-            // Hanya render manage-table jika tab tersebut sedang aktif
-            if(document.getElementById('tab-manage')?.classList.contains('active')) {
-                renderManageAttendanceTable();
-            }
-            if(document.getElementById('tab-reports')?.classList.contains('active')) {
-                renderReports();
-            }
-        }
+        triggerAdminRender();
         if (currentUser && currentUser.role === 'guru') {
             updateGuruStatusAndBtn();
             renderGuruHistory();
         }
     });
+}
+
+// FUNGSI UTAMA UNTUK UPDATE REAL-TIME SELURUH UI ADMIN
+function triggerAdminRender() {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    try {
+        renderDashboardStats();
+    } catch (e) {
+        console.error("Gagal renderDashboardStats:", e);
+    }
+    try {
+        renderLiveFeed();
+    } catch (e) {
+        console.error("Gagal renderLiveFeed:", e);
+    }
+    try {
+        renderTeachersTable();
+    } catch (e) {
+        console.error("Gagal renderTeachersTable:", e);
+    }
+    try {
+        populateTeacherDropdownsAdmin();
+    } catch (e) {
+        console.error("Gagal populateTeacherDropdownsAdmin:", e);
+    }
+    try {
+        renderManageAttendanceTable();
+    } catch (e) {
+        console.error("Gagal renderManageAttendanceTable:", e);
+    }
+    try {
+        renderAdminsTable();
+    } catch (e) {
+        console.error("Gagal renderAdminsTable:", e);
+    }
+    try {
+        renderReports();
+    } catch (e) {
+        console.error("Gagal renderReports:", e);
+    }
 }
 
 // SIMPAN KE FIREBASE (Atau LocalStorage jika offline)
@@ -119,6 +144,11 @@ async function saveData(collection, docId, data) {
         const idx = state[collection].findIndex(item => item.id === docId);
         if(idx >= 0) state[collection][idx] = data; else state[collection].push(data);
         localStorage.setItem(`qr_presensi_${collection}`, JSON.stringify(state[collection]));
+        triggerAdminRender();
+        if (currentUser && currentUser.role === 'guru') {
+            updateGuruStatusAndBtn();
+            renderGuruHistory();
+        }
     }
 }
 
@@ -132,10 +162,11 @@ async function deleteData(collection, docId) {
     } else {
         state[collection] = state[collection].filter(item => item.id !== docId);
         localStorage.setItem(`qr_presensi_${collection}`, JSON.stringify(state[collection]));
-        // Manual re-render jika offline
-        if(collection === 'attendance') { renderManageAttendanceTable(); renderLiveFeed(); renderDashboardStats(); }
-        if(collection === 'teachers') { renderTeachersTable(); renderDashboardStats(); }
-        if(collection === 'admins') renderAdminsTable();
+        triggerAdminRender();
+        if (currentUser && currentUser.role === 'guru') {
+            updateGuruStatusAndBtn();
+            renderGuruHistory();
+        }
     }
 }
 
@@ -168,12 +199,17 @@ window.resetDatabaseLocal = function() {
 // ==========================================================================
 
 function getDayName(dateObj) {
+    if(!dateObj || isNaN(new Date(dateObj).getTime())) dateObj = new Date();
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    return days[dateObj.getDay()];
+    return days[new Date(dateObj).getDay()];
 }
 
 function getTodayDateStr() {
-    return new Date().toISOString().split('T')[0];
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 function getAcuanHadir(teacher, dateObj) {
@@ -250,9 +286,12 @@ loginTabs.forEach(btn => {
 
 function renderLoginDropdown() {
     const select = document.getElementById("login-select-guru");
+    if(!select) return;
     select.innerHTML = '<option value="">-- Pilih Nama Anda --</option>';
     state.teachers.forEach(t => {
-        select.innerHTML += `<option value="${t.id}">${t.name} (NIP: ${t.nip})</option>`;
+        const nameStr = t.name || "Guru";
+        const nipStr = t.nip ? ` (NIP: ${t.nip})` : "";
+        select.innerHTML += `<option value="${t.id}">${nameStr}${nipStr}</option>`;
     });
 }
 
@@ -630,17 +669,11 @@ let adminClockInterval;
 function initAdminView() {
     if(!currentUser || currentUser.role !== 'admin') return;
     
-    document.getElementById("admin-name-display").textContent = currentUser.data.username;
+    document.getElementById("admin-name-display").textContent = currentUser.data.username || "Admin";
     const dt = document.getElementById("manage-date");
-    if (!dt.value) dt.value = getTodayDateStr();
+    if (dt && !dt.value) dt.value = getTodayDateStr();
     
-    renderDashboardStats();
-    renderLiveFeed();
-    renderTeachersTable();
-    populateTeacherDropdownsAdmin();
-    renderManageAttendanceTable();
-    renderAdminsTable();
-    renderReports();
+    triggerAdminRender();
     
     if(adminClockInterval) clearInterval(adminClockInterval);
     adminClockInterval = setInterval(updateAdminClock, 1000);
@@ -737,10 +770,13 @@ function renderDashboardStats() {
 function renderLiveFeed() {
     if(currentUser?.role !== 'admin') return;
     const feedContainer = document.getElementById("feed-scans-list");
+    if(!feedContainer) return;
+    
     const today = getTodayDateStr();
     const todaysLogs = state.attendance.filter(log => log.date === today);
     
-    document.getElementById("feed-count").textContent = `${todaysLogs.length} Aktivitas`;
+    const countEl = document.getElementById("feed-count");
+    if(countEl) countEl.textContent = `${todaysLogs.length} Aktivitas`;
     
     if (todaysLogs.length === 0) {
         feedContainer.innerHTML = `<div class="feed-empty"><p>Belum ada aktivitas presensi hari ini.</p></div>`;
@@ -751,9 +787,20 @@ function renderLiveFeed() {
     
     let feedItems = [];
     todaysLogs.forEach(l => {
-        feedItems.push({ name: l.teacherName, time: l.timeIn, action: l.type === 'hadir' ? l.statusIn : l.type.toUpperCase(), ket: l.acuanMapel || l.keterangan });
+        const nameStr = l.teacherName || "Guru";
+        feedItems.push({ 
+            name: nameStr, 
+            time: l.timeIn || "00:00:00", 
+            action: l.type === 'hadir' ? (l.statusIn || "Hadir") : (l.type || "INFO").toUpperCase(), 
+            ket: l.acuanMapel || l.keterangan || "-" 
+        });
         if (l.timeOut) {
-            feedItems.push({ name: l.teacherName, time: l.timeOut, action: "Pulang", ket: "Selesai Mengajar" });
+            feedItems.push({ 
+                name: nameStr, 
+                time: l.timeOut, 
+                action: "Pulang", 
+                ket: "Selesai Mengajar" 
+            });
         }
     });
     
@@ -765,17 +812,20 @@ function renderLiveFeed() {
         else if (item.action === 'Pulang') badge = "badge-secondary";
         else if (item.action === 'IZIN' || item.action === 'SAKIT') badge = "badge-info";
         
+        const avatarStr = (item.name || "GU").substring(0, 2).toUpperCase();
+        const displayTime = (item.time || "00:00").substring(0, 5);
+        
         feedContainer.innerHTML += `
             <div class="feed-item">
                 <div class="feed-user">
-                    <div class="feed-avatar">${item.name.substring(0,2).toUpperCase()}</div>
+                    <div class="feed-avatar">${avatarStr}</div>
                     <div class="feed-info">
                         <h4>${item.name}</h4>
                         <p>${item.ket}</p>
                     </div>
                 </div>
                 <div style="text-align:right;">
-                    <span class="feed-time">${item.time.substring(0,5)}</span><br>
+                    <span class="feed-time">${displayTime}</span><br>
                     <span class="badge ${badge}">${item.action}</span>
                 </div>
             </div>
@@ -787,17 +837,38 @@ function renderLiveFeed() {
 function renderTeachersTable() {
     if(currentUser?.role !== 'admin') return;
     const tbody = document.getElementById("teachers-list-body");
-    const search = document.getElementById("search-teacher") ? document.getElementById("search-teacher").value.toLowerCase() : "";
+    if(!tbody) return;
+    
+    const searchInput = document.getElementById("search-teacher");
+    const search = searchInput ? searchInput.value.toLowerCase() : "";
     
     tbody.innerHTML = "";
-    const filtered = state.teachers.filter(t => t.name.toLowerCase().includes(search));
+    const filtered = state.teachers.filter(t => {
+        const nameStr = t.name || "";
+        return nameStr.toLowerCase().includes(search);
+    });
+    
+    if(filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:16px; color:var(--text-muted);">Tidak ada data guru ditemukan.</td></tr>`;
+        return;
+    }
     
     filtered.forEach(t => {
+        const avatarStr = (t.name || "GU").substring(0, 2).toUpperCase();
         tbody.innerHTML += `
             <tr>
-                <td><div class="feed-avatar">${t.name.substring(0,2).toUpperCase()}</div></td>
-                <td>${t.name}</td><td>${t.nip}</td><td>${t.picketDay}</td><td>${t.picketCheckIn || '-'}</td>
-                <td><div class="action-buttons"><button class="btn-icon" onclick="openJadwalForTeacher('${t.id}')"><i class="fa-solid fa-calendar-week"></i></button><button class="btn-icon" onclick="editTeacher('${t.id}')"><i class="fa-solid fa-pen"></i></button><button class="btn-icon" onclick="deleteTeacher('${t.id}')"><i class="fa-solid fa-trash"></i></button></div></td>
+                <td><div class="feed-avatar">${avatarStr}</div></td>
+                <td><strong>${t.name || "-"}</strong></td>
+                <td>${t.nip || "-"}</td>
+                <td>${t.picketDay || "-"}</td>
+                <td>${t.picketCheckIn || '-'}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon" title="Jadwal" onclick="openJadwalForTeacher('${t.id}')"><i class="fa-solid fa-calendar-week"></i></button>
+                        <button class="btn-icon" title="Edit" onclick="editTeacher('${t.id}')"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn-icon" title="Hapus" onclick="deleteTeacher('${t.id}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </td>
             </tr>
         `;
     });
@@ -1034,10 +1105,13 @@ document.getElementById("form-attendance").addEventListener("submit", (e) => {
     
     const st = document.getElementById("att-status").value;
     const logId = lId || "L"+Date.now();
+    const selectedDate = new Date(document.getElementById("att-date").value + 'T00:00:00');
+    const acuan = getAcuanHadir(t, selectedDate);
+    
     const newData = {
         id: logId, teacherId: tId, teacherName: t.name, date: document.getElementById("att-date").value,
         timeIn, timeOut, statusIn: st==='Izin'||st==='Sakit'||st==='Alpa'?'-':st, type: st==='Izin'||st==='Sakit'||st==='Alpa'?st.toLowerCase():'hadir',
-        keterangan: document.getElementById("att-keterangan").value, acuanJam: getAcuanHadir(t, new Date()).jam, acuanMapel: getAcuanHadir(t, new Date()).mapel
+        keterangan: document.getElementById("att-keterangan").value, acuanJam: acuan.jam, acuanMapel: acuan.mapel
     };
     
     saveData("attendance", logId, newData).then(() => {

@@ -445,7 +445,7 @@ select option { background: var(--bg-app); color: var(--text-main); }
 
 /* Modals */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); z-index: 100; display: flex; align-items: center; justify-content: center; transition: opacity 0.3s; }
-.modal-overlay.hidden { opacity: 0; pointer-events: none; }
+.modal-overlay.hidden { opacity: 0; pointer-events: none; display: none !important; }
 .modal-card { width: 100%; max-width: 500px; background: var(--bg-app); border: 1px solid var(--border-glass-light); }
 .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border-glass); display: flex; justify-content: space-between; align-items: center; }
 .btn-close-modal { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; }
@@ -504,7 +504,7 @@ select option { background: var(--bg-app); color: var(--text-main); }
 
 
 .success-dialog-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 60; display: flex; align-items: center; justify-content: center; padding: 24px; }
-.success-dialog-overlay.hidden { opacity: 0; pointer-events: none; }
+.success-dialog-overlay.hidden { opacity: 0; pointer-events: none; display: none !important; }
 .success-card { width: 100%; max-width: 400px; padding: 32px; text-align: center; }
 .success-icon { font-size: 64px; color: var(--color-success); margin-bottom: 16px; }
 .detail-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px;}
