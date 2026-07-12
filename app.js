@@ -83,7 +83,7 @@ function setupFirebaseListeners() {
         if (currentUser && currentUser.role === 'admin') populateJadwalGrid();
     });
 
-    // 4. Listen Attendance (Hari ini saja untuk performa, tapi di sini kita tarik semua untuk laporan bulanan)
+    // 4. Listen Attendance (real-time di semua perangkat)
     db.collection("attendance").onSnapshot((snapshot) => {
         state.attendance = [];
         snapshot.forEach((doc) => state.attendance.push(doc.data()));
@@ -91,11 +91,17 @@ function setupFirebaseListeners() {
         if (currentUser && currentUser.role === 'admin') {
             renderDashboardStats();
             renderLiveFeed();
-            renderManageAttendanceTable();
-            renderReports();
+            // Hanya render manage-table jika tab tersebut sedang aktif
+            if(document.getElementById('tab-manage')?.classList.contains('active')) {
+                renderManageAttendanceTable();
+            }
+            if(document.getElementById('tab-reports')?.classList.contains('active')) {
+                renderReports();
+            }
         }
         if (currentUser && currentUser.role === 'guru') {
-            initGuruView(); // Auto-refresh UI guru jika ada perubahan (misal diaudit admin)
+            updateGuruStatusAndBtn();
+            renderGuruHistory();
         }
     });
 }
@@ -126,8 +132,15 @@ async function deleteData(collection, docId) {
     } else {
         state[collection] = state[collection].filter(item => item.id !== docId);
         localStorage.setItem(`qr_presensi_${collection}`, JSON.stringify(state[collection]));
+        // Manual re-render jika offline
+        if(collection === 'attendance') { renderManageAttendanceTable(); renderLiveFeed(); renderDashboardStats(); }
+        if(collection === 'teachers') { renderTeachersTable(); renderDashboardStats(); }
+        if(collection === 'admins') renderAdminsTable();
     }
 }
+
+// Expose ke window agar bisa dipanggil dari onclick di HTML
+window.deleteData = deleteData;
 
 function setupLocalStorageFallback() {
     const storedVersion = localStorage.getItem('qr_presensi_version');
@@ -394,22 +407,125 @@ function renderGuruHistory() {
     });
 }
 
+// ===================== KAMERA SCANNER (GURU - jsQR) =====================
+let cameraStream = null;
+let scanAnimFrame = null;
+let scanActive = false;
+
 const scannerOverlay = document.getElementById("scanner-view-overlay");
 const successDialog = document.getElementById("success-dialog");
+const videoEl = document.getElementById("camera-video");
+const canvasEl = document.getElementById("camera-canvas");
+
+function startCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("Browser Anda tidak mendukung akses kamera. Coba gunakan Chrome atau Safari versi terbaru.");
+        return;
+    }
+    
+    const constraints = {
+        video: {
+            facingMode: { ideal: "environment" }, // Gunakan kamera belakang HP
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+        }
+    };
+    
+    navigator.mediaDevices.getUserMedia(constraints)
+        .then((stream) => {
+            cameraStream = stream;
+            videoEl.srcObject = stream;
+            videoEl.play();
+            scanActive = true;
+            scannerOverlay.classList.remove("hidden");
+            requestAnimationFrame(scanFrame);
+        })
+        .catch((err) => {
+            console.error("Akses kamera gagal:", err);
+            if(err.name === 'NotAllowedError') {
+                alert("Akses kamera ditolak. Silakan izinkan akses kamera di pengaturan browser Anda, lalu coba lagi.");
+            } else {
+                alert(`Tidak bisa membuka kamera: ${err.message}`);
+            }
+        });
+}
+
+function stopCamera() {
+    scanActive = false;
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+    if (scanAnimFrame) {
+        cancelAnimationFrame(scanAnimFrame);
+        scanAnimFrame = null;
+    }
+    videoEl.srcObject = null;
+    scannerOverlay.classList.add("hidden");
+}
+
+function scanFrame() {
+    if (!scanActive) return;
+    
+    if (videoEl.readyState === videoEl.HAVE_ENOUGH_DATA) {
+        const ctx = canvasEl.getContext('2d', { willReadFrequently: true });
+        canvasEl.width = videoEl.videoWidth;
+        canvasEl.height = videoEl.videoHeight;
+        ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+        
+        const imageData = ctx.getImageData(0, 0, canvasEl.width, canvasEl.height);
+        
+        if (typeof jsQR !== 'undefined') {
+            const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+            
+            if (code && code.data) {
+                console.log("QR terdeteksi:", code.data);
+                handleQRScanResult(code.data);
+                return; // Hentikan scanning setelah berhasil
+            }
+        }
+    }
+    
+    scanAnimFrame = requestAnimationFrame(scanFrame);
+}
+
+function handleQRScanResult(scannedData) {
+    // Tampilkan toast sementara
+    const toast = document.getElementById('scan-result-toast');
+    toast.classList.remove('hidden');
+    
+    // Verifikasi: apakah data yang di-scan sesuai dengan token Admin aktif?
+    if (scannedData !== state.activeToken) {
+        toast.textContent = "❌ QR Tidak Valid / Kadaluarsa!";
+        toast.style.background = "var(--color-danger)";
+        setTimeout(() => {
+            toast.classList.add('hidden');
+            toast.textContent = "✅ QR Terdeteksi!";
+            toast.style.background = "var(--color-success)";
+            // Lanjutkan scanning jika QR tidak valid
+            scanActive = true;
+            scanAnimFrame = requestAnimationFrame(scanFrame);
+        }, 2000);
+        return;
+    }
+    
+    // QR Valid! Hentikan kamera dan proses absen
+    stopCamera();
+    
+    setTimeout(() => {
+        toast.classList.add('hidden');
+        processAttendance(currentUser.data.id);
+    }, 500);
+}
 
 document.getElementById("btn-trigger-scan").addEventListener("click", () => {
-    scannerOverlay.classList.remove("hidden");
-    
-    // Simulate real QR scanning delay (In a real app, this opens the camera)
-    setTimeout(() => {
-        scannerOverlay.classList.add("hidden");
-        // We simulate a successful scan by simply processing the attendance.
-        // The QR code for Check-in and Check-out is THE SAME.
-        processAttendance(currentUser.data.id);
-    }, 1500);
+    startCamera();
 });
 
-document.getElementById("btn-close-scanner").addEventListener("click", () => scannerOverlay.classList.add("hidden"));
+document.getElementById("btn-close-scanner").addEventListener("click", () => {
+    stopCamera();
+});
+
 
 function processAttendance(teacherId) {
     const teacher = state.teachers.find(t => t.id === teacherId);
@@ -530,23 +646,62 @@ function initAdminView() {
     adminClockInterval = setInterval(updateAdminClock, 1000);
 }
 
+// ===================== QR CODE GENERATOR (Admin - qrcode.js) =====================
+let currentQRInstance = null;
+let currentQRToken = "";
+
+function generateAdminQR(token) {
+    const container = document.getElementById('qr-code-display');
+    if (!container) return;
+    
+    // Bersihkan QR lama
+    container.innerHTML = "";
+    
+    if (typeof QRCode === 'undefined') {
+        container.innerHTML = `<div style="text-align:center; color:#64748b;"><i class="fa-solid fa-spinner fa-spin" style="font-size:40px;"></i><br><small>Memuat library QR...</small></div>`;
+        return;
+    }
+
+    try {
+        new QRCode(container, {
+            text: token,
+            width: 248,
+            height: 248,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+        });
+        // Pastikan gambar/canvas tidak overflow
+        const img = container.querySelector('img');
+        if(img) { img.style.width = '100%'; img.style.height = '100%'; img.style.borderRadius = '4px'; }
+        const cvs = container.querySelector('canvas');
+        if(cvs) { cvs.style.width = '100%'; cvs.style.height = '100%'; cvs.style.borderRadius = '4px'; }
+    } catch(e) {
+        console.error("QRCode error:", e);
+    }
+}
+
+
 function updateAdminClock() {
     if(currentUser?.role !== 'admin') return;
     const now = new Date();
     document.getElementById('live-time').textContent = now.toLocaleTimeString('id-ID');
     document.getElementById('live-date').textContent = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     
-    const tokenStr = "QR-" + now.getFullYear() + (now.getMonth()+1) + now.getDate() + "-" + now.getHours() + now.getMinutes();
+    // Token berubah tiap menit — format string yang sama harus cocok di sisi guru juga
+    const tokenStr = `PRESENSI-${now.getFullYear()}${now.getMonth()+1}${now.getDate()}-${now.getHours()}${now.getMinutes()}`;
     
-    if (tokenStr !== lastRenderedToken && qrHelper) {
-        state.activeToken = btoa(tokenStr).substring(0, 10);
-        document.getElementById('active-token').textContent = state.activeToken;
-        document.getElementById('qr-code-display').innerHTML = qrHelper.generateMockSVG(state.activeToken);
-        lastRenderedToken = tokenStr;
+    if (tokenStr !== currentQRToken) {
+        currentQRToken = tokenStr;
+        state.activeToken = tokenStr;
+        const el = document.getElementById('active-token');
+        if(el) el.textContent = tokenStr.substring(0, 22) + "...";
+        generateAdminQR(state.activeToken);
     }
 }
 
-document.getElementById("btn-regenerate-qr").addEventListener("click", () => { lastRenderedToken = ""; updateAdminClock(); });
+document.getElementById("btn-regenerate-qr").addEventListener("click", () => { currentQRToken = ""; updateAdminClock(); });
+
 
 // TABS ADMIN
 const navItems = document.querySelectorAll('.nav-item');
@@ -558,8 +713,15 @@ navItems.forEach(item => {
         item.classList.add('active');
         const tabId = 'tab-' + item.getAttribute('data-tab');
         document.getElementById(tabId).classList.add('active');
+        
+        // Trigger render saat tab aktif
+        const tab = item.getAttribute('data-tab');
+        if(tab === 'manage') renderManageAttendanceTable();
+        if(tab === 'reports') renderReports();
+        if(tab === 'jadwal') populateJadwalGrid();
     });
 });
+
 
 function renderDashboardStats() {
     if(currentUser?.role !== 'admin') return;
@@ -775,24 +937,69 @@ document.getElementById("btn-save-jadwal").addEventListener("click", () => {
 
 // ADMIN: KELOLA KEHADIRAN
 document.getElementById("manage-date")?.addEventListener("change", renderManageAttendanceTable);
+
+// Tombol Tambah Manual
+document.getElementById("btn-add-manual-attendance")?.addEventListener("click", () => {
+    if(state.teachers.length === 0) return alert("Belum ada data guru.");
+    const tDate = document.getElementById("manage-date").value || getTodayDateStr();
+    openAttendanceModal(state.teachers[0].id, tDate, null);
+});
+
 function renderManageAttendanceTable() {
     if(currentUser?.role !== 'admin') return;
     const tbody = document.getElementById("manage-attendance-body");
     const tDate = document.getElementById("manage-date").value;
+    if(!tDate) return;
     tbody.innerHTML = "";
+    
+    if(state.teachers.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-muted);">Belum ada data guru. Tambahkan guru di tab Data Guru.</td></tr>`;
+        return;
+    }
     
     state.teachers.forEach(t => {
         const log = state.attendance.find(a => a.teacherId === t.id && a.date === tDate);
-        const acuan = getAcuanHadir(t, new Date(tDate));
+        const acuan = getAcuanHadir(t, new Date(tDate + 'T00:00:00'));
         
-        let actBtns = `<button class="btn-icon" onclick="openAttendanceModal('${t.id}','${tDate}',null)"><i class="fa-solid fa-pen"></i></button>`;
-        let hHtml = `<td>${t.name}</td><td>${acuan.jam}</td><td>-</td><td>-</td><td>-</td><td>-</td><td><div class="action-buttons">${actBtns}</div></td>`;
+        const acuanHtml = `<div style="font-size:13px;"><strong>${acuan.jam}</strong><br><span style="color:var(--text-muted); font-size:11px;">${acuan.mapel}</span></div>`;
+        let actBtns = `<button class="btn-icon" title="Tambah Presensi" onclick="openAttendanceModal('${t.id}','${tDate}',null)"><i class="fa-solid fa-plus"></i></button>`;
+        
+        let timeInHtml = `<span style="color:var(--text-muted)">-</span>`;
+        let timeOutHtml = `<span style="color:var(--text-muted)">-</span>`;
+        let statusHtml = acuan.wajibHadir 
+            ? `<span class="badge" style="background:rgba(239,68,68,0.15); color:var(--color-danger); border-color:rgba(239,68,68,0.3);">Belum Hadir</span>`
+            : `<span class="badge" style="background:rgba(100,116,139,0.15); color:var(--text-muted);">Tidak Wajib</span>`;
+        let ketHtml = `<span style="color:var(--text-muted)">-</span>`;
         
         if (log) {
-            actBtns = `<button class="btn-icon" onclick="openAttendanceModal('${t.id}','${tDate}','${log.id}')"><i class="fa-solid fa-pen"></i></button><button class="btn-icon" onclick="deleteData('attendance', '${log.id}')"><i class="fa-solid fa-trash"></i></button>`;
-            hHtml = `<td>${t.name}</td><td>${acuan.jam}</td><td>${log.timeIn.substring(0,5)}</td><td>${log.timeOut ? log.timeOut.substring(0,5) : '-'}</td><td><span class="badge ${log.statusIn==='Terlambat'?'badge-warning':(log.type==='hadir'?'badge-success':'badge-info')}">${log.type==='hadir'?log.statusIn:log.type}</span></td><td>${log.keterangan||'-'}</td><td><div class="action-buttons">${actBtns}</div></td>`;
+            actBtns = `
+                <button class="btn-icon" title="Edit" onclick="openAttendanceModal('${t.id}','${tDate}','${log.id}')"><i class="fa-solid fa-pen"></i></button>
+                <button class="btn-icon" title="Hapus" onclick="deleteData('attendance', '${log.id}')"><i class="fa-solid fa-trash"></i></button>
+            `;
+            timeInHtml = `<strong style="color:var(--text-main);">${log.timeIn.substring(0,5)}</strong>`;
+            timeOutHtml = log.timeOut 
+                ? `<strong style="color:var(--color-info);">${log.timeOut.substring(0,5)}</strong>` 
+                : `<span style="color:var(--text-muted)">Belum Pulang</span>`;
+            
+            if(log.type === 'izin') statusHtml = `<span class="badge badge-info">Izin</span>`;
+            else if(log.type === 'sakit') statusHtml = `<span class="badge badge-secondary">Sakit</span>`;
+            else if(log.type === 'alpa') statusHtml = `<span class="badge badge-danger">Alpa</span>`;
+            else if(log.statusIn === 'Terlambat') statusHtml = `<span class="badge badge-warning">Terlambat</span>`;
+            else statusHtml = `<span class="badge badge-success">Tepat Waktu</span>`;
+            
+            if(log.keterangan) ketHtml = `<span style="font-size:12px; color:var(--text-secondary);">${log.keterangan}</span>`;
         }
-        tbody.innerHTML += `<tr>${hHtml}</tr>`;
+        
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>${t.name}</strong></td>
+                <td>${acuanHtml}</td>
+                <td>${timeInHtml}</td>
+                <td>${timeOutHtml}</td>
+                <td class="text-center">${statusHtml}</td>
+                <td>${ketHtml}</td>
+                <td><div class="action-buttons">${actBtns}</div></td>
+            </tr>`;
     });
 }
 
@@ -863,46 +1070,103 @@ document.getElementById("form-admin-account").addEventListener("submit", (e) => 
 // ADMIN: REPORTS
 function renderReports() {
     if(currentUser?.role !== 'admin') return;
-    const t = document.getElementById("select-report-month"); if(!t) return;
-    const m = t.value; // YYYY-MM
-    const tbody = document.getElementById("report-list-body"); tbody.innerHTML = "";
+    const sel = document.getElementById("select-report-month"); 
+    if(!sel) return;
+    const m = sel.value; // YYYY-MM
+    const tbody = document.getElementById("report-list-body"); 
+    tbody.innerHTML = "";
+    
+    if(state.teachers.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:24px; color:var(--text-muted);">Belum ada data guru.</td></tr>`;
+        return;
+    }
+
+    state.teachers.forEach(t => {
+        const logs = state.attendance.filter(a => a.teacherId === t.id && a.date.startsWith(m));
+        const tepat = logs.filter(l => l.type==='hadir' && l.statusIn==='Tepat Waktu').length;
+        const lambat = logs.filter(l => l.type==='hadir' && l.statusIn==='Terlambat').length;
+        const izinSakit = logs.filter(l => l.type==='izin' || l.type==='sakit').length;
+        const alpa = logs.filter(l => l.type==='alpa').length;
+        const hadirTotal = tepat + lambat;
+        
+        // Hitung skor kehadiran (Tepat=100, Terlambat=70, Izin/Sakit=80, Alpa=0)
+        let skor = '-';
+        let skorColor = 'var(--text-muted)';
+        if(logs.length > 0) {
+            let totalPoin = (tepat * 100) + (lambat * 70) + (izinSakit * 80) + (alpa * 0);
+            skor = Math.round(totalPoin / logs.length);
+            if(skor >= 85) skorColor = 'var(--color-success)';
+            else if(skor >= 70) skorColor = 'var(--color-warning)';
+            else skorColor = 'var(--color-danger)';
+        }
+        
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>${t.name}</strong></td>
+                <td class="text-center"><strong>${hadirTotal}</strong></td>
+                <td class="text-center" style="color:var(--color-success)">${tepat}</td>
+                <td class="text-center" style="color:var(--color-warning)">${lambat}</td>
+                <td class="text-center" style="color:var(--color-info)">${izinSakit}</td>
+                <td class="text-center" style="color:var(--color-danger)">${alpa}</td>
+                <td class="text-right">
+                    <span style="font-weight:700; color:${skorColor};">${skor === '-' ? '-' : skor + '/100'}</span>
+                </td>
+            </tr>`;
+    });
+}
+
+// Inisialisasi dropdown bulan (3 bulan terakhir)
+if(document.getElementById("select-report-month")) {
+    const sel = document.getElementById("select-report-month");
+    sel.innerHTML = "";
+    const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+    const now = new Date();
+    for(let i = 0; i < 4; i++) {
+        let month = now.getMonth() - i;
+        let year = now.getFullYear();
+        if(month < 0) { month += 12; year -= 1; }
+        const val = `${year}-${(month+1).toString().padStart(2,'0')}`;
+        const label = `${monthNames[month]} ${year}`;
+        sel.innerHTML += `<option value="${val}">${label}</option>`;
+    }
+    sel.addEventListener("change", renderReports);
+}
+
+// Ekspor CSV Detail
+document.getElementById("btn-export-csv")?.addEventListener("click", () => {
+    const m = document.getElementById("select-report-month").value;
+    const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+    const [yr, mo] = m.split('-');
+    const monthLabel = `${monthNames[parseInt(mo)-1]} ${yr}`;
+    
+    // Header
+    let rows = [`"Laporan Presensi Guru - ${monthLabel}"`];
+    rows.push('"Nama Guru","Total Hadir","Tepat Waktu","Terlambat","Izin/Sakit","Alpa","Skor Kehadiran"');
     
     state.teachers.forEach(t => {
         const logs = state.attendance.filter(a => a.teacherId === t.id && a.date.startsWith(m));
         const tepat = logs.filter(l => l.type==='hadir' && l.statusIn==='Tepat Waktu').length;
         const lambat = logs.filter(l => l.type==='hadir' && l.statusIn==='Terlambat').length;
-        const izin = logs.filter(l => l.type==='izin' || l.type==='sakit').length;
+        const izinSakit = logs.filter(l => l.type==='izin' || l.type==='sakit').length;
         const alpa = logs.filter(l => l.type==='alpa').length;
-        const h = tepat+lambat;
-        tbody.innerHTML += `<tr><td>${t.name}</td><td class="text-center">${h}</td><td class="text-center" style="color:var(--color-success)">${tepat}</td><td class="text-center" style="color:var(--color-warning)">${lambat}</td><td class="text-center" style="color:var(--color-info)">${izin}</td><td class="text-center" style="color:var(--color-danger)">${alpa}</td><td class="text-right"><span class="badge badge-success">OK</span></td></tr>`;
+        const hadir = tepat + lambat;
+        let skor = '-';
+        if(logs.length > 0) skor = Math.round(((tepat*100)+(lambat*70)+(izinSakit*80)+(alpa*0)) / logs.length) + '/100';
+        rows.push(`"${t.name}",${hadir},${tepat},${lambat},${izinSakit},${alpa},"${skor}"`);
     });
-}
-if(document.getElementById("select-report-month")) {
-    const sel = document.getElementById("select-report-month");
-    const d = new Date(); sel.innerHTML = `<option value="${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}">Bulan Ini</option>`;
-    sel.addEventListener("change", renderReports);
-}
-
-document.getElementById("btn-export-csv").addEventListener("click", () => {
-    let csvContent = "data:text/csv;charset=utf-8,Nama Guru,Total Hadir,Tepat Waktu,Terlambat,Izin/Sakit,Alpa\n";
-    document.querySelectorAll("#report-list-body tr").forEach(row => {
-        const cols = Array.from(row.querySelectorAll("td")).map(c => `"${c.innerText}"`);
-        if(cols.length > 5) csvContent += cols.slice(0,6).join(",") + "\n";
-    });
+    
+    const csvContent = "data:text/csv;charset=utf-8," + rows.join("\n");
     const link = document.createElement("a");
     link.href = encodeURI(csvContent);
-    link.download = `Laporan_${document.getElementById("select-report-month").value}.csv`;
+    link.download = `Laporan_Presensi_${m}.csv`;
     link.click();
 });
+
 
 // ==========================================================================
 // BOOTSTRAP
 // ==========================================================================
-if (!window.QRHelper) {
-    qrHelper = { generateMockSVG: (text) => `<div style="text-align:center; padding:10px;"><i class="fa-solid fa-qrcode" style="font-size:64px; color:#3b82f6;"></i><br>${text}</div>` }
-} else { qrHelper = new QRHelper(); }
-
 window.addEventListener("load", () => {
-    // 1. Init Database (Will trigger checkSession automatically after loading)
     initDatabase();
 });
+

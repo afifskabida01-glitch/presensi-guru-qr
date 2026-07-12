@@ -122,21 +122,30 @@
             </div>
         </div>
 
-        <!-- Scanner Overlay -->
+        <!-- Scanner Overlay (Kamera Sungguhan) -->
         <div class="scanner-overlay hidden" id="scanner-view-overlay">
             <div class="scanner-header">
                 <button class="btn-close-scanner" id="btn-close-scanner"><i class="fa-solid fa-xmark"></i></button>
-                <span>Memindai QR Code...</span>
+                <span id="scanner-title-text">Arahkan ke QR Code Admin</span>
             </div>
-            <div class="scanner-viewport">
-                <div class="scanner-target-box">
-                    <div class="corner top-left"></div>
-                    <div class="corner top-right"></div>
-                    <div class="corner bottom-left"></div>
-                    <div class="corner bottom-right"></div>
-                    <div class="scanner-laser"></div>
+            <div class="scanner-viewport" style="position:relative; flex:1;">
+                <!-- VIDEO = live camera feed -->
+                <video id="camera-video" playsinline autoplay muted style="width:100%; height:100%; object-fit:cover;"></video>
+                <!-- CANVAS = invisible, dipakai jsQR untuk baca frame -->
+                <canvas id="camera-canvas" style="display:none;"></canvas>
+                <!-- Overlay kotak panduan -->
+                <div class="scanner-overlay-ui">
+                    <div class="scanner-target-box">
+                        <div class="corner top-left"></div>
+                        <div class="corner top-right"></div>
+                        <div class="corner bottom-left"></div>
+                        <div class="corner bottom-right"></div>
+                        <div class="scanner-laser"></div>
+                    </div>
+                    <p class="scanner-tip">Arahkan kamera ke QR Code di layar Admin</p>
                 </div>
-                <p class="scanner-tip">Arahkan ke QR Code di layar Admin</p>
+                <!-- Status pesan saat QR terdeteksi -->
+                <div id="scan-result-toast" class="scan-result-toast hidden">✅ QR Terdeteksi!</div>
             </div>
         </div>
 
@@ -274,8 +283,8 @@
                                 <span class="badge-live-pulse"><span class="pulse-ring"></span>Aktif</span>
                             </div>
                             <div class="qr-container" style="padding: 40px;">
-                                <div class="qr-box" id="qr-code-display" style="width: 280px; height: 280px;"></div>
-                                <div class="qr-scan-line"></div>
+                                <!-- qrcode.js akan inject <canvas> atau <img> ke dalam div ini -->
+                                <div class="qr-box" id="qr-code-display" style="width: 280px; height: 280px; display:flex; align-items:center; justify-content:center;"></div>
                             </div>
                             <div class="qr-meta">
                                 <p class="qr-token">Token: <span id="active-token">-</span></p>
@@ -467,9 +476,14 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-    <script src="firebase-config.js?v=4.0"></script>
+    <script src="firebase-config.js?v=5.0"></script>
     
-    <script src="qr-helper.js?v=4.0"></script>
-    <script src="app.js?v=4.0"></script>
+    <!-- QR Code Generator (untuk Admin) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <!-- jsQR Scanner (untuk kamera HP Guru) -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    
+    <script src="app.js?v=5.0"></script>
 </body>
 </html>
