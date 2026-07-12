@@ -528,19 +528,45 @@ function scanFrame() {
     scanAnimFrame = requestAnimationFrame(scanFrame);
 }
 
+function generateTokenForTime(dateObj) {
+    const y = dateObj.getFullYear();
+    const m = dateObj.getMonth() + 1;
+    const d = dateObj.getDate();
+    const h = dateObj.getHours();
+    const min = dateObj.getMinutes();
+    return `PRESENSI-${y}${m}${d}-${h}${min}`;
+}
+
+function isValidToken(scannedData) {
+    const now = Date.now();
+    // Berikan toleransi: 2 menit yang lalu, 1 menit yang lalu, sekarang, dan 1 menit ke depan
+    // untuk mengompensasi ketidakakuratan jam di HP Guru vs Laptop Admin
+    const timeOffsets = [-120000, -60000, 0, 60000];
+    return timeOffsets.some(offset => {
+        const token = generateTokenForTime(new Date(now + offset));
+        return scannedData === token;
+    });
+}
+
 function handleQRScanResult(scannedData) {
     // Tampilkan toast sementara
     const toast = document.getElementById('scan-result-toast');
-    toast.classList.remove('hidden');
+    if(toast) {
+        toast.classList.remove('hidden');
+    }
     
-    // Verifikasi: apakah data yang di-scan sesuai dengan token Admin aktif?
-    if (scannedData !== state.activeToken) {
-        toast.textContent = "❌ QR Tidak Valid / Kadaluarsa!";
-        toast.style.background = "var(--color-danger)";
+    // Verifikasi: apakah data yang di-scan valid dengan toleransi waktu
+    if (!isValidToken(scannedData)) {
+        if(toast) {
+            toast.textContent = "❌ QR Tidak Valid / Kadaluarsa!";
+            toast.style.background = "var(--color-danger)";
+        }
         setTimeout(() => {
-            toast.classList.add('hidden');
-            toast.textContent = "✅ QR Terdeteksi!";
-            toast.style.background = "var(--color-success)";
+            if(toast) {
+                toast.classList.add('hidden');
+                toast.textContent = "✅ QR Terdeteksi!";
+                toast.style.background = "var(--color-success)";
+            }
             // Lanjutkan scanning jika QR tidak valid
             scanActive = true;
             scanAnimFrame = requestAnimationFrame(scanFrame);
@@ -552,7 +578,9 @@ function handleQRScanResult(scannedData) {
     stopCamera();
     
     setTimeout(() => {
-        toast.classList.add('hidden');
+        if(toast) {
+            toast.classList.add('hidden');
+        }
         processAttendance(currentUser.data.id);
     }, 500);
 }
@@ -721,8 +749,8 @@ function updateAdminClock() {
     document.getElementById('live-time').textContent = now.toLocaleTimeString('id-ID');
     document.getElementById('live-date').textContent = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     
-    // Token berubah tiap menit — format string yang sama harus cocok di sisi guru juga
-    const tokenStr = `PRESENSI-${now.getFullYear()}${now.getMonth()+1}${now.getDate()}-${now.getHours()}${now.getMinutes()}`;
+    // Gunakan fungsi terpusat untuk membentuk token
+    const tokenStr = generateTokenForTime(now);
     
     if (tokenStr !== currentQRToken) {
         currentQRToken = tokenStr;
