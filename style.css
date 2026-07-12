@@ -309,6 +309,9 @@ body {
    ADMIN DASHBOARD VIEW
    ========================================================================== */
 .app-wrapper {
+    display: none;
+}
+.app-wrapper.active {
     display: flex;
     flex-direction: column;
     height: 100vh;
