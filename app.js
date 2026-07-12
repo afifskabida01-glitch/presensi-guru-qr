@@ -1,19 +1,15 @@
 /**
- * QRPresensi - Application Logic (Phase 3 - Role-Based & Check-Out)
- * Mengelola sistem login, pemisahan UI Admin/Guru, absen pulang, dan kelola admin.
+ * QRPresensi - Application Logic (Phase 4 - Firebase Realtime Sync)
+ * Mengelola sistem sinkronisasi database cloud Firebase Firestore.
  */
 
-// ==========================================================================
-// STATE MANAGEMENT & DATA MODEL
-// ==========================================================================
-
-const APP_VERSION = "prod-4.0"; // Versi cache (Fase 3)
+const APP_VERSION = "prod-5.0"; // Versi cache (Fase 4 Firebase)
 
 let state = {
     teachers: [],
     schedules: [],
-    attendance: [], // { id, teacherId, date, timeIn, timeOut, statusIn, statusOut, type, keterangan, acuanJam }
-    admins: [{ id: "admin1", username: "admin", password: "123", role: "superadmin" }], // Default admin
+    attendance: [],
+    admins: [{ id: "admin1", username: "admin", password: "123", role: "superadmin" }], // Fallback admin
     settings: { defaultCheckIn: "07:00" },
     activeToken: ""
 };
@@ -22,37 +18,127 @@ let currentUser = null; // { role: 'admin'|'guru', data: {} }
 let db = null;
 let qrHelper = null;
 let lastRenderedToken = "";
+let isFirebaseActive = false;
 
 // ==========================================================================
-// INIT & LOCAL STORAGE
+// FIREBASE INIT & SYNC
 // ==========================================================================
 
-function setupLocalStorage() {
+function initDatabase() {
+    // Cek apakah konfigurasi firebase tersedia di window
+    if (window.firebaseConfig && window.firebaseConfig.apiKey && window.firebaseConfig.apiKey !== "YOUR_API_KEY") {
+        try {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(window.firebaseConfig);
+            }
+            db = firebase.firestore();
+            isFirebaseActive = true;
+            console.log("🔥 Firebase Firestore berhasi diinisialisasi.");
+            setupFirebaseListeners();
+            
+            // Check session setelah init (karena bergantung pada data)
+            setTimeout(checkSession, 500); 
+        } catch (e) {
+            console.error("Gagal inisialisasi Firebase. Beralih ke mode Offline/Lokal.", e);
+            setupLocalStorageFallback();
+            checkSession();
+        }
+    } else {
+        console.warn("Konfigurasi Firebase tidak ditemukan. Beralih ke mode Offline/Lokal.");
+        setupLocalStorageFallback();
+        checkSession();
+    }
+}
+
+// REALTIME LISTENERS
+function setupFirebaseListeners() {
+    // 1. Listen Admins
+    db.collection("admins").onSnapshot((snapshot) => {
+        state.admins = [];
+        snapshot.forEach((doc) => state.admins.push(doc.data()));
+        // Jika kosong di cloud, masukkan default
+        if(state.admins.length === 0) {
+            db.collection("admins").doc("admin1").set({ id: "admin1", username: "admin", password: "123", role: "superadmin" });
+        }
+        if (currentUser && currentUser.role === 'admin') renderAdminsTable();
+    });
+
+    // 2. Listen Teachers
+    db.collection("teachers").onSnapshot((snapshot) => {
+        state.teachers = [];
+        snapshot.forEach((doc) => state.teachers.push(doc.data()));
+        
+        if (!currentUser) renderLoginDropdown();
+        if (currentUser && currentUser.role === 'admin') {
+            renderTeachersTable();
+            populateTeacherDropdownsAdmin();
+            renderDashboardStats();
+        }
+    });
+
+    // 3. Listen Schedules
+    db.collection("schedules").onSnapshot((snapshot) => {
+        state.schedules = [];
+        snapshot.forEach((doc) => state.schedules.push(doc.data()));
+        if (currentUser && currentUser.role === 'admin') populateJadwalGrid();
+    });
+
+    // 4. Listen Attendance (Hari ini saja untuk performa, tapi di sini kita tarik semua untuk laporan bulanan)
+    db.collection("attendance").onSnapshot((snapshot) => {
+        state.attendance = [];
+        snapshot.forEach((doc) => state.attendance.push(doc.data()));
+        
+        if (currentUser && currentUser.role === 'admin') {
+            renderDashboardStats();
+            renderLiveFeed();
+            renderManageAttendanceTable();
+            renderReports();
+        }
+        if (currentUser && currentUser.role === 'guru') {
+            initGuruView(); // Auto-refresh UI guru jika ada perubahan (misal diaudit admin)
+        }
+    });
+}
+
+// SIMPAN KE FIREBASE (Atau LocalStorage jika offline)
+async function saveData(collection, docId, data) {
+    if (isFirebaseActive && db) {
+        try {
+            await db.collection(collection).doc(docId).set(data);
+        } catch (e) {
+            console.error("Error writing to Firestore:", e);
+        }
+    } else {
+        // Fallback
+        const idx = state[collection].findIndex(item => item.id === docId);
+        if(idx >= 0) state[collection][idx] = data; else state[collection].push(data);
+        localStorage.setItem(`qr_presensi_${collection}`, JSON.stringify(state[collection]));
+    }
+}
+
+async function deleteData(collection, docId) {
+    if (isFirebaseActive && db) {
+        try {
+            await db.collection(collection).doc(docId).delete();
+        } catch (e) {
+            console.error("Error deleting from Firestore:", e);
+        }
+    } else {
+        state[collection] = state[collection].filter(item => item.id !== docId);
+        localStorage.setItem(`qr_presensi_${collection}`, JSON.stringify(state[collection]));
+    }
+}
+
+function setupLocalStorageFallback() {
     const storedVersion = localStorage.getItem('qr_presensi_version');
-
     if (storedVersion !== APP_VERSION) {
-        console.log("Versi cache berbeda. Menghapus data lama (APP_VERSION 4.0)...");
         localStorage.clear();
         localStorage.setItem('qr_presensi_version', APP_VERSION);
     }
-
     state.teachers = JSON.parse(localStorage.getItem('qr_presensi_teachers')) || [];
     state.schedules = JSON.parse(localStorage.getItem('qr_presensi_schedules')) || [];
     state.attendance = JSON.parse(localStorage.getItem('qr_presensi_attendance')) || [];
     state.admins = JSON.parse(localStorage.getItem('qr_presensi_admins')) || [{ id: "admin1", username: "admin", password: "123", role: "superadmin" }];
-    
-    // Check if logged in
-    const session = sessionStorage.getItem('qr_presensi_session');
-    if (session) {
-        currentUser = JSON.parse(session);
-    }
-}
-
-function saveStateToLocal() {
-    localStorage.setItem('qr_presensi_teachers', JSON.stringify(state.teachers));
-    localStorage.setItem('qr_presensi_schedules', JSON.stringify(state.schedules));
-    localStorage.setItem('qr_presensi_attendance', JSON.stringify(state.attendance));
-    localStorage.setItem('qr_presensi_admins', JSON.stringify(state.admins));
 }
 
 window.resetDatabaseLocal = function() {
@@ -78,6 +164,8 @@ function getTodayDateStr() {
 }
 
 function getAcuanHadir(teacher, dateObj) {
+    if(!teacher) return { jam: "-", mapel: "Tidak Wajib Hadir", wajibHadir: false };
+    
     const dayName = getDayName(dateObj);
     const schedule = state.schedules.find(s => s.teacherId === teacher.id && s.day === dayName);
     
@@ -116,6 +204,11 @@ function navigateTo(viewId) {
 }
 
 function checkSession() {
+    const session = sessionStorage.getItem('qr_presensi_session');
+    if (session && !currentUser) {
+        currentUser = JSON.parse(session);
+    }
+    
     if (!currentUser) {
         navigateTo('view-login');
         renderLoginDropdown();
@@ -137,7 +230,6 @@ loginTabs.forEach(btn => {
     btn.addEventListener('click', (e) => {
         loginTabs.forEach(t => t.classList.remove('active'));
         e.target.classList.add('active');
-        
         document.querySelectorAll('.login-form-container').forEach(c => c.classList.remove('active'));
         document.getElementById(e.target.getAttribute('data-target')).classList.add('active');
     });
@@ -153,7 +245,7 @@ function renderLoginDropdown() {
 
 document.getElementById("btn-login-guru").addEventListener('click', () => {
     const tId = document.getElementById("login-select-guru").value;
-    if (!tId) return alert("Pilih nama Anda!");
+    if (!tId) return alert("Pilih nama Anda dari daftar!");
     const tData = state.teachers.find(t => t.id === tId);
     
     currentUser = { role: 'guru', data: tData };
@@ -194,6 +286,8 @@ document.getElementById("btn-logout-guru").addEventListener('click', () => {
 // ==========================================================================
 
 function initGuruView() {
+    if(!currentUser || currentUser.role !== 'guru') return;
+    
     const t = currentUser.data;
     document.getElementById("guru-name-display").textContent = t.name;
     document.getElementById("guru-avatar-init").textContent = t.name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
@@ -201,7 +295,7 @@ function initGuruView() {
     const now = new Date();
     document.getElementById("guru-today-day").textContent = getDayName(now);
     
-    // Render Schedule List
+    // Render Schedule
     const scheduleBox = document.getElementById("guru-schedule-list");
     const dayName = getDayName(now);
     const schedule = state.schedules.find(s => s.teacherId === t.id && s.day === dayName);
@@ -233,9 +327,10 @@ function updateGuruStatusAndBtn() {
     const btnHint = document.getElementById("scan-hint-text");
     const btnIzin = document.getElementById("btn-lapor-izin");
     
-    btnIzin.style.display = "block"; // Reset default
-    btnScan.className = "btn-scan-main"; // Reset
+    btnIzin.style.display = "block";
+    btnScan.className = "btn-scan-main";
     btnScan.disabled = false;
+    btnScan.style.opacity = "1";
     
     if (!log) {
         statusInd.className = "status-indicator";
@@ -243,7 +338,7 @@ function updateGuruStatusAndBtn() {
         btnText.textContent = "Absen Datang";
         btnHint.textContent = "Ketuk untuk memindai QR Datang";
     } else {
-        btnIzin.style.display = "none"; // Hide izin if already have log
+        btnIzin.style.display = "none";
         
         if (log.type === 'izin' || log.type === 'sakit') {
             statusInd.className = "status-indicator info";
@@ -253,15 +348,13 @@ function updateGuruStatusAndBtn() {
             btnText.textContent = "Tidak Bisa Absen";
             btnHint.textContent = "Anda sudah lapor izin hari ini";
         } else if (!log.timeOut) {
-            // Sudah absen datang, belum pulang
             statusInd.className = "status-indicator success";
             statusInd.innerHTML = `<i class="fa-solid fa-sign-in-alt"></i> <span>Hadir (Datang: ${log.timeIn.substring(0,5)})</span>`;
             
-            btnScan.className = "btn-scan-main mode-checkout"; // Orange mode
+            btnScan.className = "btn-scan-main mode-checkout";
             btnText.textContent = "Absen Pulang";
             btnHint.textContent = "Ketuk untuk memindai QR Pulang";
         } else {
-            // Sudah absen datang dan pulang
             statusInd.className = "status-indicator success";
             statusInd.innerHTML = `<i class="fa-solid fa-check-double"></i> <span>Selesai (Pulang: ${log.timeOut.substring(0,5)})</span>`;
             
@@ -301,20 +394,17 @@ function renderGuruHistory() {
     });
 }
 
-// SCANNER (GURU)
 const scannerOverlay = document.getElementById("scanner-view-overlay");
 const successDialog = document.getElementById("success-dialog");
 
 document.getElementById("btn-trigger-scan").addEventListener("click", () => {
     scannerOverlay.classList.remove("hidden");
     
-    // Simulate scan delay
+    // Simulate real QR scanning delay (In a real app, this opens the camera)
     setTimeout(() => {
         scannerOverlay.classList.add("hidden");
-        
-        // Cek token validitas (untuk demo kita asumsikan guru melihat token valid di HP-nya yang disesuaikan dgn proyektor admin)
-        // Di real-world, guru akan mengakses kamera dan membaca QR Code.
-        // Untuk simulasi ini, kita by-pass pengecekan token spesifik karena HP dan Admin di layar terpisah.
+        // We simulate a successful scan by simply processing the attendance.
+        // The QR code for Check-in and Check-out is THE SAME.
         processAttendance(currentUser.data.id);
     }, 1500);
 });
@@ -334,8 +424,9 @@ function processAttendance(teacherId) {
         const acuan = getAcuanHadir(teacher, now);
         const status = determineStatusIn(timeStr, acuan.jam);
         
+        const logId = "L" + Date.now();
         log = {
-            id: "L" + Date.now(),
+            id: logId,
             teacherId: teacher.id,
             teacherName: teacher.name,
             date: todayStr,
@@ -348,20 +439,22 @@ function processAttendance(teacherId) {
             acuanJam: acuan.jam,
             acuanMapel: acuan.mapel
         };
-        state.attendance.push(log);
         
-        showSuccessDialog("Absen Datang", timeStr, log.statusIn);
+        saveData("attendance", logId, log).then(() => {
+            showSuccessDialog("Absen Datang", timeStr, log.statusIn);
+            initGuruView(); 
+        });
         
     } else if (!log.timeOut && log.type === 'hadir') {
         // ABSEN PULANG
         log.timeOut = timeStr;
         log.statusOut = "Selesai";
         
-        showSuccessDialog("Absen Pulang", timeStr, log.statusOut);
+        saveData("attendance", log.id, log).then(() => {
+            showSuccessDialog("Absen Pulang", timeStr, log.statusOut);
+            initGuruView(); 
+        });
     }
-    
-    saveStateToLocal();
-    initGuruView(); // Refresh UI
 }
 
 function showSuccessDialog(type, time, status) {
@@ -386,18 +479,16 @@ document.getElementById("btn-close-izin").addEventListener("click", () => izinOv
 document.getElementById("btn-submit-izin").addEventListener("click", () => {
     const type = document.getElementById("izin-type").value;
     const ket = document.getElementById("izin-keterangan").value;
-    
     if(!ket.trim()) return alert("Keterangan/alasan wajib diisi!");
     
     const teacher = currentUser.data;
-    const now = new Date();
-    
+    const logId = "L" + Date.now();
     const newRecord = {
-        id: "L" + Date.now(),
+        id: logId,
         teacherId: teacher.id,
         teacherName: teacher.name,
         date: getTodayDateStr(),
-        timeIn: now.toLocaleTimeString('en-GB'),
+        timeIn: new Date().toLocaleTimeString('en-GB'),
         timeOut: "",
         statusIn: "-",
         statusOut: "-",
@@ -407,22 +498,23 @@ document.getElementById("btn-submit-izin").addEventListener("click", () => {
         acuanMapel: "-"
     };
     
-    state.attendance.push(newRecord);
-    saveStateToLocal();
-    
-    izinOverlay.classList.add("hidden");
-    alert(`Laporan ${type} berhasil dikirim ke Admin.`);
-    initGuruView();
+    saveData("attendance", logId, newRecord).then(() => {
+        izinOverlay.classList.add("hidden");
+        alert(`Laporan ${type} berhasil dikirim ke Admin.`);
+        initGuruView();
+    });
 });
 
 // ==========================================================================
 // VIEW: ADMIN
 // ==========================================================================
 
+let adminClockInterval;
+
 function initAdminView() {
-    document.getElementById("admin-name-display").textContent = currentUser.data.username;
+    if(!currentUser || currentUser.role !== 'admin') return;
     
-    // Inisialisasi input tanggal
+    document.getElementById("admin-name-display").textContent = currentUser.data.username;
     const dt = document.getElementById("manage-date");
     if (!dt.value) dt.value = getTodayDateStr();
     
@@ -434,16 +526,15 @@ function initAdminView() {
     renderAdminsTable();
     renderReports();
     
-    setInterval(updateAdminClock, 1000);
+    if(adminClockInterval) clearInterval(adminClockInterval);
+    adminClockInterval = setInterval(updateAdminClock, 1000);
 }
 
 function updateAdminClock() {
     if(currentUser?.role !== 'admin') return;
-    
     const now = new Date();
     document.getElementById('live-time').textContent = now.toLocaleTimeString('id-ID');
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    document.getElementById('live-date').textContent = now.toLocaleDateString('id-ID', options);
+    document.getElementById('live-date').textContent = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     
     const tokenStr = "QR-" + now.getFullYear() + (now.getMonth()+1) + now.getDate() + "-" + now.getHours() + now.getMinutes();
     
@@ -467,15 +558,11 @@ navItems.forEach(item => {
         item.classList.add('active');
         const tabId = 'tab-' + item.getAttribute('data-tab');
         document.getElementById(tabId).classList.add('active');
-        
-        if(tabId === 'tab-manage') renderManageAttendanceTable();
-        if(tabId === 'tab-reports') renderReports();
-        if(tabId === 'tab-jadwal') populateJadwalGrid();
     });
 });
 
-// ADMIN: DASHBOARD
 function renderDashboardStats() {
+    if(currentUser?.role !== 'admin') return;
     const today = getTodayDateStr();
     const todaysLogs = state.attendance.filter(log => log.date === today);
     
@@ -486,6 +573,7 @@ function renderDashboardStats() {
 }
 
 function renderLiveFeed() {
+    if(currentUser?.role !== 'admin') return;
     const feedContainer = document.getElementById("feed-scans-list");
     const today = getTodayDateStr();
     const todaysLogs = state.attendance.filter(log => log.date === today);
@@ -493,18 +581,17 @@ function renderLiveFeed() {
     document.getElementById("feed-count").textContent = `${todaysLogs.length} Aktivitas`;
     
     if (todaysLogs.length === 0) {
-        feedContainer.innerHTML = `<div class="feed-empty"><p>Belum ada presensi hari ini.</p></div>`;
+        feedContainer.innerHTML = `<div class="feed-empty"><p>Belum ada aktivitas presensi hari ini.</p></div>`;
         return;
     }
     
     feedContainer.innerHTML = "";
     
-    // Sort log (tampilkan log pulangnya juga jika ada)
     let feedItems = [];
     todaysLogs.forEach(l => {
         feedItems.push({ name: l.teacherName, time: l.timeIn, action: l.type === 'hadir' ? l.statusIn : l.type.toUpperCase(), ket: l.acuanMapel || l.keterangan });
         if (l.timeOut) {
-            feedItems.push({ name: l.teacherName, time: l.timeOut, action: "Pulang", ket: "Selesai" });
+            feedItems.push({ name: l.teacherName, time: l.timeOut, action: "Pulang", ket: "Selesai Mengajar" });
         }
     });
     
@@ -534,8 +621,9 @@ function renderLiveFeed() {
     });
 }
 
-// ADMIN: GURU & JADWAL (CRUD) -- Identik dengan Phase 2
+// ADMIN: GURU & JADWAL (CRUD)
 function renderTeachersTable() {
+    if(currentUser?.role !== 'admin') return;
     const tbody = document.getElementById("teachers-list-body");
     const search = document.getElementById("search-teacher") ? document.getElementById("search-teacher").value.toLowerCase() : "";
     
@@ -571,13 +659,10 @@ document.getElementById("form-teacher").addEventListener("submit", (e) => {
         picketDay: document.getElementById("teacher-picket").value,
         picketCheckIn: document.getElementById("teacher-checkin").value
     };
-    const idx = state.teachers.findIndex(t => t.id === id);
-    if (idx >= 0) state.teachers[idx] = newData; else state.teachers.push(newData);
     
-    saveStateToLocal();
-    renderTeachersTable();
-    populateTeacherDropdownsAdmin();
-    teacherModal.classList.add("hidden");
+    saveData("teachers", id, newData).then(() => {
+        teacherModal.classList.add("hidden");
+    });
 });
 window.editTeacher = function(id) {
     const t = state.teachers.find(t => t.id === id);
@@ -590,7 +675,12 @@ window.editTeacher = function(id) {
     teacherModal.classList.remove("hidden");
 }
 window.deleteTeacher = function(id) {
-    if (confirm("Hapus guru ini?")) { state.teachers = state.teachers.filter(t => t.id !== id); saveStateToLocal(); renderTeachersTable(); populateTeacherDropdownsAdmin(); }
+    if (confirm("Hapus guru ini? Ini juga akan menghapus jadwal mengajarnya.")) { 
+        deleteData("teachers", id); 
+        // Idealnya hapus jadwalnya juga
+        const sch = state.schedules.filter(s => s.teacherId === id);
+        sch.forEach(s => deleteData("schedules", s.id));
+    }
 }
 
 function populateTeacherDropdownsAdmin() {
@@ -617,7 +707,9 @@ function populateJadwalGrid() {
         const sch = state.schedules.find(s => s.teacherId === tId && s.day === day);
         let eHtml = "";
         if (sch && sch.entries.length > 0) {
-            sch.entries.forEach(e => eHtml += `<div class="jadwal-entry">${e.jamMulai} - ${e.mapel} (${e.kelas})</div>`);
+            [...sch.entries].sort((a, b) => a.jamMulai.localeCompare(b.jamMulai)).forEach(e => {
+                eHtml += `<div class="jadwal-entry">${e.jamMulai} - ${e.mapel} (${e.kelas})</div>`;
+            });
         }
         grid.innerHTML += `
             <div class="jadwal-day-card" onclick="openJadwalModal('${day}')">
@@ -638,18 +730,28 @@ window.openJadwalModal = function(day) {
     document.getElementById("jadwal-teacher-id").value = selectJadwalTeacher.value;
     document.getElementById("jadwal-day").value = day;
     document.getElementById("jadwal-day-display").value = day;
-    document.getElementById("jadwal-entries-container").innerHTML = "";
-    addJadwalEntryRow();
+    
+    const tId = selectJadwalTeacher.value;
+    const sch = state.schedules.find(s => s.teacherId === tId && s.day === day);
+    const container = document.getElementById("jadwal-entries-container");
+    container.innerHTML = "";
+    
+    if (sch && sch.entries.length > 0) {
+        sch.entries.forEach(e => addJadwalEntryRow(e.jamMulai, e.mapel, e.kelas));
+    } else {
+        addJadwalEntryRow();
+    }
     jadwalModal.classList.remove("hidden");
 }
 document.getElementById("btn-close-jadwal-modal").addEventListener("click", () => jadwalModal.classList.add("hidden"));
 document.getElementById("btn-add-jadwal-entry").addEventListener("click", () => addJadwalEntryRow());
-function addJadwalEntryRow() {
+function addJadwalEntryRow(jam="07:00", mapel="", kelas="") {
     const div = document.createElement("div"); div.innerHTML = `
         <div style="display:flex; gap:10px; margin-bottom:5px;">
-            <input type="time" class="j-jam" value="07:00" required>
-            <input type="text" class="j-mapel" placeholder="Mapel" required>
-            <input type="text" class="j-kelas" placeholder="Kelas" required>
+            <input type="time" class="j-jam" value="${jam}" required>
+            <input type="text" class="j-mapel" value="${mapel}" placeholder="Mapel" required>
+            <input type="text" class="j-kelas" value="${kelas}" placeholder="Kelas" required>
+            <button type="button" class="btn-icon" onclick="this.parentElement.parentElement.remove()" style="background:rgba(239, 68, 68, 0.2); color:#ef4444;"><i class="fa-solid fa-xmark"></i></button>
         </div>`;
     document.getElementById("jadwal-entries-container").appendChild(div);
 }
@@ -660,14 +762,21 @@ document.getElementById("btn-save-jadwal").addEventListener("click", () => {
     document.getElementById("jadwal-entries-container").querySelectorAll("div > div").forEach(row => {
         entries.push({ jamMulai: row.querySelector(".j-jam").value, mapel: row.querySelector(".j-mapel").value, kelas: row.querySelector(".j-kelas").value });
     });
-    const idx = state.schedules.findIndex(s => s.teacherId === tId && s.day === day);
-    if(idx >= 0) state.schedules[idx].entries = entries; else state.schedules.push({teacherId:tId, day, entries});
-    saveStateToLocal(); populateJadwalGrid(); jadwalModal.classList.add("hidden");
+    
+    let schId = "S_" + tId + "_" + day;
+    const existing = state.schedules.find(s => s.teacherId === tId && s.day === day);
+    if(existing && existing.id) schId = existing.id;
+    
+    const newData = { id: schId, teacherId: tId, day, entries };
+    saveData("schedules", schId, newData).then(() => {
+        jadwalModal.classList.add("hidden");
+    });
 });
 
-// ADMIN: KELOLA KEHADIRAN (DENGAN JAM PULANG)
+// ADMIN: KELOLA KEHADIRAN
 document.getElementById("manage-date")?.addEventListener("change", renderManageAttendanceTable);
 function renderManageAttendanceTable() {
+    if(currentUser?.role !== 'admin') return;
     const tbody = document.getElementById("manage-attendance-body");
     const tDate = document.getElementById("manage-date").value;
     tbody.innerHTML = "";
@@ -677,10 +786,10 @@ function renderManageAttendanceTable() {
         const acuan = getAcuanHadir(t, new Date(tDate));
         
         let actBtns = `<button class="btn-icon" onclick="openAttendanceModal('${t.id}','${tDate}',null)"><i class="fa-solid fa-pen"></i></button>`;
-        let hHtml = `<td>${t.name}</td><td>${acuan.jam}</td><td>-</td><td>-</td><td>-</td><td>-</td><td>${actBtns}</td>`;
+        let hHtml = `<td>${t.name}</td><td>${acuan.jam}</td><td>-</td><td>-</td><td>-</td><td>-</td><td><div class="action-buttons">${actBtns}</div></td>`;
         
         if (log) {
-            actBtns = `<button class="btn-icon" onclick="openAttendanceModal('${t.id}','${tDate}','${log.id}')"><i class="fa-solid fa-pen"></i></button><button class="btn-icon" onclick="deleteAttendance('${log.id}')"><i class="fa-solid fa-trash"></i></button>`;
+            actBtns = `<button class="btn-icon" onclick="openAttendanceModal('${t.id}','${tDate}','${log.id}')"><i class="fa-solid fa-pen"></i></button><button class="btn-icon" onclick="deleteData('attendance', '${log.id}')"><i class="fa-solid fa-trash"></i></button>`;
             hHtml = `<td>${t.name}</td><td>${acuan.jam}</td><td>${log.timeIn.substring(0,5)}</td><td>${log.timeOut ? log.timeOut.substring(0,5) : '-'}</td><td><span class="badge ${log.statusIn==='Terlambat'?'badge-warning':(log.type==='hadir'?'badge-success':'badge-info')}">${log.type==='hadir'?log.statusIn:log.type}</span></td><td>${log.keterangan||'-'}</td><td><div class="action-buttons">${actBtns}</div></td>`;
         }
         tbody.innerHTML += `<tr>${hHtml}</tr>`;
@@ -712,31 +821,31 @@ document.getElementById("form-attendance").addEventListener("submit", (e) => {
     const tId = document.getElementById("att-teacher-id").value;
     const t = state.teachers.find(x => x.id === tId);
     
-    const timeIn = document.getElementById("att-time").value + ":00";
+    const timeIn = document.getElementById("att-time").value + (document.getElementById("att-time").value.length === 5 ? ":00" : "");
     let timeOut = document.getElementById("att-time-out").value;
-    if(timeOut) timeOut += ":00";
+    if(timeOut && timeOut.length === 5) timeOut += ":00";
     
     const st = document.getElementById("att-status").value;
+    const logId = lId || "L"+Date.now();
     const newData = {
-        id: lId || "L"+Date.now(), teacherId: tId, teacherName: t.name, date: document.getElementById("att-date").value,
+        id: logId, teacherId: tId, teacherName: t.name, date: document.getElementById("att-date").value,
         timeIn, timeOut, statusIn: st==='Izin'||st==='Sakit'||st==='Alpa'?'-':st, type: st==='Izin'||st==='Sakit'||st==='Alpa'?st.toLowerCase():'hadir',
-        keterangan: document.getElementById("att-keterangan").value, acuanJam: getAcuanHadir(t, new Date()).jam
+        keterangan: document.getElementById("att-keterangan").value, acuanJam: getAcuanHadir(t, new Date()).jam, acuanMapel: getAcuanHadir(t, new Date()).mapel
     };
     
-    if(lId) { const idx = state.attendance.findIndex(a => a.id === lId); state.attendance[idx] = newData; }
-    else state.attendance.push(newData);
-    
-    saveStateToLocal(); renderManageAttendanceTable(); attModal.classList.add("hidden");
+    saveData("attendance", logId, newData).then(() => {
+        attModal.classList.add("hidden");
+    });
 });
-window.deleteAttendance = function(id) { if(confirm("Hapus log presensi ini?")) { state.attendance = state.attendance.filter(a => a.id !== id); saveStateToLocal(); renderManageAttendanceTable(); } }
 
-// ADMIN: KELOLA ADMIN BARU
+// ADMIN: KELOLA ADMIN
 function renderAdminsTable() {
+    if(currentUser?.role !== 'admin') return;
     const tbody = document.getElementById("admins-list-body");
     tbody.innerHTML = "";
     state.admins.forEach(a => {
-        let btn = a.username !== 'admin' ? `<button class="btn-icon" onclick="deleteAdmin('${a.id}')"><i class="fa-solid fa-trash"></i></button>` : '';
-        tbody.innerHTML += `<tr><td>${a.username}</td><td><span class="badge badge-info">${a.role}</span></td><td class="text-right">${btn}</td></tr>`;
+        let btn = a.username !== 'admin' ? `<button class="btn-icon" onclick="deleteData('admins', '${a.id}')"><i class="fa-solid fa-trash"></i></button>` : '';
+        tbody.innerHTML += `<tr><td>${a.username}</td><td><span class="badge badge-info">${a.role}</span></td><td><div class="action-buttons">${btn}</div></td></tr>`;
     });
 }
 const adminModal = document.getElementById("admin-account-modal");
@@ -744,13 +853,16 @@ document.getElementById("btn-add-admin-modal").addEventListener("click", () => a
 document.getElementById("btn-close-admin-modal").addEventListener("click", () => adminModal.classList.add("hidden"));
 document.getElementById("form-admin-account").addEventListener("submit", (e) => {
     e.preventDefault();
-    state.admins.push({ id: "A"+Date.now(), username: document.getElementById("new-admin-user").value, password: document.getElementById("new-admin-pass").value, role: "admin" });
-    saveStateToLocal(); renderAdminsTable(); adminModal.classList.add("hidden");
+    const id = "A"+Date.now();
+    const newData = { id, username: document.getElementById("new-admin-user").value, password: document.getElementById("new-admin-pass").value, role: "admin" };
+    saveData("admins", id, newData).then(() => {
+        adminModal.classList.add("hidden");
+    });
 });
-window.deleteAdmin = function(id) { if(confirm("Hapus admin ini?")) { state.admins = state.admins.filter(a => a.id !== id); saveStateToLocal(); renderAdminsTable(); } }
 
 // ADMIN: REPORTS
 function renderReports() {
+    if(currentUser?.role !== 'admin') return;
     const t = document.getElementById("select-report-month"); if(!t) return;
     const m = t.value; // YYYY-MM
     const tbody = document.getElementById("report-list-body"); tbody.innerHTML = "";
@@ -762,7 +874,7 @@ function renderReports() {
         const izin = logs.filter(l => l.type==='izin' || l.type==='sakit').length;
         const alpa = logs.filter(l => l.type==='alpa').length;
         const h = tepat+lambat;
-        tbody.innerHTML += `<tr><td>${t.name}</td><td class="text-center">${h}</td><td class="text-center">${tepat}</td><td class="text-center">${lambat}</td><td class="text-center">${izin}</td><td class="text-center">${alpa}</td><td class="text-right"><span class="badge badge-success">OK</span></td></tr>`;
+        tbody.innerHTML += `<tr><td>${t.name}</td><td class="text-center">${h}</td><td class="text-center" style="color:var(--color-success)">${tepat}</td><td class="text-center" style="color:var(--color-warning)">${lambat}</td><td class="text-center" style="color:var(--color-info)">${izin}</td><td class="text-center" style="color:var(--color-danger)">${alpa}</td><td class="text-right"><span class="badge badge-success">OK</span></td></tr>`;
     });
 }
 if(document.getElementById("select-report-month")) {
@@ -771,6 +883,17 @@ if(document.getElementById("select-report-month")) {
     sel.addEventListener("change", renderReports);
 }
 
+document.getElementById("btn-export-csv").addEventListener("click", () => {
+    let csvContent = "data:text/csv;charset=utf-8,Nama Guru,Total Hadir,Tepat Waktu,Terlambat,Izin/Sakit,Alpa\n";
+    document.querySelectorAll("#report-list-body tr").forEach(row => {
+        const cols = Array.from(row.querySelectorAll("td")).map(c => `"${c.innerText}"`);
+        if(cols.length > 5) csvContent += cols.slice(0,6).join(",") + "\n";
+    });
+    const link = document.createElement("a");
+    link.href = encodeURI(csvContent);
+    link.download = `Laporan_${document.getElementById("select-report-month").value}.csv`;
+    link.click();
+});
 
 // ==========================================================================
 // BOOTSTRAP
@@ -780,6 +903,6 @@ if (!window.QRHelper) {
 } else { qrHelper = new QRHelper(); }
 
 window.addEventListener("load", () => {
-    setupLocalStorage();
-    checkSession();
+    // 1. Init Database (Will trigger checkSession automatically after loading)
+    initDatabase();
 });
