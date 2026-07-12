@@ -70,6 +70,22 @@ async function initDatabase() {
 
 // Fallback jika Firebase tidak aktif
 function setupLocalStorageFallback() {
+    // =====================================================================
+    // SISTEM VERSI CACHE - Data lama dihapus otomatis jika versi berbeda
+    // =====================================================================
+    const APP_VERSION = "prod-2.0";
+    const storedVersion = localStorage.getItem('qr_presensi_version');
+
+    if (storedVersion !== APP_VERSION) {
+        // Versi tidak cocok (data lama / data demo) → hapus semua
+        console.log("Versi cache berbeda. Menghapus data lama dan memulai bersih...");
+        localStorage.removeItem('qr_presensi_teachers');
+        localStorage.removeItem('qr_presensi_attendance');
+        localStorage.removeItem('qr_presensi_settings');
+        localStorage.setItem('qr_presensi_version', APP_VERSION);
+    }
+    // =====================================================================
+
     state.teachers = JSON.parse(localStorage.getItem('qr_presensi_teachers')) || DEFAULT_TEACHERS;
     state.attendance = JSON.parse(localStorage.getItem('qr_presensi_attendance')) || generateHistoricalLogs();
     state.settings = JSON.parse(localStorage.getItem('qr_presensi_settings')) || {
@@ -81,7 +97,7 @@ function setupLocalStorageFallback() {
     const indicatorText = document.getElementById("storage-mode-text");
     const indicatorBox = document.getElementById("storage-mode-indicator");
     if (indicatorText && indicatorBox) {
-        indicatorText.textContent = "Mode: Lokal (Demo)";
+        indicatorText.textContent = "Mode: Lokal";
         indicatorBox.classList.remove("cloud");
     }
 
