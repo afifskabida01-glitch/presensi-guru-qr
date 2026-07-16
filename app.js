@@ -461,16 +461,23 @@ function startCamera() {
         alert("Browser Anda tidak mendukung akses kamera. Coba gunakan Chrome atau Safari versi terbaru.");
         return;
     }
-    
-    const constraints = {
+
+    const preferredConstraints = {
         video: {
-            facingMode: { ideal: "environment" }, // Gunakan kamera belakang HP
+            facingMode: { ideal: "environment" },
             width: { ideal: 1280 },
             height: { ideal: 720 }
         }
     };
-    
-    navigator.mediaDevices.getUserMedia(constraints)
+
+    navigator.mediaDevices.getUserMedia(preferredConstraints)
+        .catch(() => navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { ideal: "user" },
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            }
+        }))
         .then((stream) => {
             cameraStream = stream;
             videoEl.srcObject = stream;
@@ -481,7 +488,7 @@ function startCamera() {
         })
         .catch((err) => {
             console.error("Akses kamera gagal:", err);
-            if(err.name === 'NotAllowedError') {
+            if (err.name === 'NotAllowedError') {
                 alert("Akses kamera ditolak. Silakan izinkan akses kamera di pengaturan browser Anda, lalu coba lagi.");
             } else {
                 alert(`Tidak bisa membuka kamera: ${err.message}`);
@@ -515,7 +522,9 @@ function scanFrame() {
         const imageData = ctx.getImageData(0, 0, canvasEl.width, canvasEl.height);
         
         if (typeof jsQR !== 'undefined') {
-            const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "both"
+            });
             
             if (code && code.data) {
                 console.log("QR terdeteksi:", code.data);
@@ -528,24 +537,34 @@ function scanFrame() {
     scanAnimFrame = requestAnimationFrame(scanFrame);
 }
 
+function getTokenTimeWindow(dateObj) {
+    const normalized = new Date(dateObj);
+    const roundedMinute = Math.floor(normalized.getMinutes() / 5) * 5;
+    normalized.setMinutes(roundedMinute, 0, 0);
+    return normalized;
+}
+
 function generateTokenForTime(dateObj) {
-    const y = dateObj.getFullYear();
-    const m = dateObj.getMonth() + 1;
-    const d = dateObj.getDate();
-    const h = dateObj.getHours();
-    const min = dateObj.getMinutes();
+    const normalized = getTokenTimeWindow(dateObj);
+    const y = normalized.getFullYear();
+    const m = String(normalized.getMonth() + 1).padStart(2, '0');
+    const d = String(normalized.getDate()).padStart(2, '0');
+    const h = String(normalized.getHours()).padStart(2, '0');
+    const min = String(normalized.getMinutes()).padStart(2, '0');
     return `PRESENSI-${y}${m}${d}-${h}${min}`;
 }
 
 function isValidToken(scannedData) {
     const now = Date.now();
-    // Berikan toleransi: 2 menit yang lalu, 1 menit yang lalu, sekarang, dan 1 menit ke depan
-    // untuk mengompensasi ketidakakuratan jam di HP Guru vs Laptop Admin
-    const timeOffsets = [-120000, -60000, 0, 60000];
-    return timeOffsets.some(offset => {
-        const token = generateTokenForTime(new Date(now + offset));
-        return scannedData === token;
-    });
+    const nowDate = new Date(now);
+    const candidates = [];
+
+    for (let offset = -2; offset <= 2; offset++) {
+        const windowDate = new Date(nowDate.getTime() + offset * 5 * 60000);
+        candidates.push(generateTokenForTime(windowDate));
+    }
+
+    return candidates.includes(scannedData);
 }
 
 function handleQRScanResult(scannedData) {
@@ -728,9 +747,11 @@ function generateAdminQR(token) {
             text: token,
             width: 248,
             height: 248,
-            colorDark: "#000000",
+            colorDark: "#0f172a",
             colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.H
+            correctLevel: QRCode.CorrectLevel.H,
+            margin: 2,
+            scale: 6
         });
         // Pastikan gambar/canvas tidak overflow
         const img = container.querySelector('img');
