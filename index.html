@@ -375,15 +375,19 @@
                     <div class="content-header-row">
                         <div class="content-header"><h2>Laporan Bulanan</h2></div>
                         <div class="export-actions">
-                            <button class="btn btn-excel" id="btn-export-csv"><i class="fa-solid fa-file-csv"></i> CSV</button>
+                            <button class="btn btn-excel" id="btn-export-csv"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+                            <button class="btn btn-primary" id="btn-export-pdf"><i class="fa-solid fa-file-pdf"></i> Export PDF</button>
                         </div>
                     </div>
                     <div class="filter-bar glass-card">
                         <label>Bulan:</label><select id="select-report-month"></select>
                     </div>
+                    <div class="glass-card" style="padding:12px 16px; margin-bottom:12px; font-size:13px; color:var(--text-secondary);">
+                        <strong>Keterangan Skor:</strong> 90–100 = Sangat Baik, 80–89 = Baik, 70–79 = Cukup, di bawah 70 = Perlu Perbaikan.
+                    </div>
                     <div class="table-container glass-card">
                         <table class="data-table">
-                            <thead><tr><th>Nama Guru</th><th class="text-center">Hadir</th><th class="text-center">Tepat</th><th class="text-center">Lambat</th><th class="text-center">Izin</th><th class="text-center">Alpa</th><th class="text-right">Skor</th></tr></thead>
+                            <thead><tr><th>Nama Guru</th><th class="text-center">Hadir</th><th class="text-center">Tepat</th><th class="text-center">Lambat</th><th class="text-center">Izin</th><th class="text-center">Alpa</th><th class="text-right">Skor & Penilaian</th></tr></thead>
                             <tbody id="report-list-body"></tbody>
                         </table>
                     </div>
@@ -478,6 +482,7 @@
     
     <!-- QR Code Generator (untuk Admin) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <!-- jsQR Scanner (untuk kamera HP Guru) -->
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>

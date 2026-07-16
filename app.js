@@ -1191,6 +1191,39 @@ document.getElementById("form-admin-account").addEventListener("submit", (e) => 
 });
 
 // ADMIN: REPORTS
+function getScoreLabel(score) {
+    if (score === '-') return 'Belum ada data';
+    if (score >= 90) return 'Sangat Baik';
+    if (score >= 80) return 'Baik';
+    if (score >= 70) return 'Cukup';
+    return 'Perlu Perbaikan';
+}
+
+function buildReportSummary(month) {
+    const summary = [];
+
+    state.teachers.forEach((t) => {
+        const logs = state.attendance.filter(a => a.teacherId === t.id && a.date.startsWith(month));
+        const tepat = logs.filter(l => l.type === 'hadir' && l.statusIn === 'Tepat Waktu').length;
+        const lambat = logs.filter(l => l.type === 'hadir' && l.statusIn === 'Terlambat').length;
+        const izinSakit = logs.filter(l => l.type === 'izin' || l.type === 'sakit').length;
+        const alpa = logs.filter(l => l.type === 'alpa').length;
+        const hadirTotal = tepat + lambat;
+
+        let skor = '-';
+        let label = 'Belum ada data';
+        if (logs.length > 0) {
+            const totalPoin = (tepat * 100) + (lambat * 70) + (izinSakit * 80) + (alpa * 0);
+            skor = Math.round(totalPoin / logs.length);
+            label = getScoreLabel(skor);
+        }
+
+        summary.push({ teacher: t, logs, tepat, lambat, izinSakit, alpa, hadirTotal, skor, label });
+    });
+
+    return summary;
+}
+
 function renderReports() {
     if(currentUser?.role !== 'admin') return;
     const sel = document.getElementById("select-report-month"); 
@@ -1200,39 +1233,32 @@ function renderReports() {
     tbody.innerHTML = "";
     
     if(state.teachers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:24px; color:var(--text-muted);">Belum ada data guru.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-muted);">Belum ada data guru.</td></tr>`;
         return;
     }
 
-    state.teachers.forEach(t => {
-        const logs = state.attendance.filter(a => a.teacherId === t.id && a.date.startsWith(m));
-        const tepat = logs.filter(l => l.type==='hadir' && l.statusIn==='Tepat Waktu').length;
-        const lambat = logs.filter(l => l.type==='hadir' && l.statusIn==='Terlambat').length;
-        const izinSakit = logs.filter(l => l.type==='izin' || l.type==='sakit').length;
-        const alpa = logs.filter(l => l.type==='alpa').length;
-        const hadirTotal = tepat + lambat;
-        
-        // Hitung skor kehadiran (Tepat=100, Terlambat=70, Izin/Sakit=80, Alpa=0)
-        let skor = '-';
+    const summaryRows = buildReportSummary(m);
+
+    summaryRows.forEach(item => {
         let skorColor = 'var(--text-muted)';
-        if(logs.length > 0) {
-            let totalPoin = (tepat * 100) + (lambat * 70) + (izinSakit * 80) + (alpa * 0);
-            skor = Math.round(totalPoin / logs.length);
-            if(skor >= 85) skorColor = 'var(--color-success)';
-            else if(skor >= 70) skorColor = 'var(--color-warning)';
+        if (item.skor !== '-') {
+            if (item.skor >= 90) skorColor = 'var(--color-success)';
+            else if (item.skor >= 80) skorColor = 'var(--color-info)';
+            else if (item.skor >= 70) skorColor = 'var(--color-warning)';
             else skorColor = 'var(--color-danger)';
         }
-        
+
         tbody.innerHTML += `
             <tr>
-                <td><strong>${t.name}</strong></td>
-                <td class="text-center"><strong>${hadirTotal}</strong></td>
-                <td class="text-center" style="color:var(--color-success)">${tepat}</td>
-                <td class="text-center" style="color:var(--color-warning)">${lambat}</td>
-                <td class="text-center" style="color:var(--color-info)">${izinSakit}</td>
-                <td class="text-center" style="color:var(--color-danger)">${alpa}</td>
+                <td><strong>${item.teacher.name}</strong></td>
+                <td class="text-center"><strong>${item.hadirTotal}</strong></td>
+                <td class="text-center" style="color:var(--color-success)">${item.tepat}</td>
+                <td class="text-center" style="color:var(--color-warning)">${item.lambat}</td>
+                <td class="text-center" style="color:var(--color-info)">${item.izinSakit}</td>
+                <td class="text-center" style="color:var(--color-danger)">${item.alpa}</td>
                 <td class="text-right">
-                    <span style="font-weight:700; color:${skorColor};">${skor === '-' ? '-' : skor + '/100'}</span>
+                    <div style="font-weight:700; color:${skorColor};">${item.skor === '-' ? '-' : item.skor + '/100'}</div>
+                    <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${item.label}</div>
                 </td>
             </tr>`;
     });
@@ -1255,36 +1281,139 @@ if(document.getElementById("select-report-month")) {
     sel.addEventListener("change", renderReports);
 }
 
-// Ekspor CSV Detail
-document.getElementById("btn-export-csv")?.addEventListener("click", () => {
+function exportReportCsv() {
     const m = document.getElementById("select-report-month").value;
     const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
     const [yr, mo] = m.split('-');
     const monthLabel = `${monthNames[parseInt(mo)-1]} ${yr}`;
-    
-    // Header
-    let rows = [`"Laporan Presensi Guru - ${monthLabel}"`];
-    rows.push('"Nama Guru","Total Hadir","Tepat Waktu","Terlambat","Izin/Sakit","Alpa","Skor Kehadiran"');
-    
-    state.teachers.forEach(t => {
-        const logs = state.attendance.filter(a => a.teacherId === t.id && a.date.startsWith(m));
-        const tepat = logs.filter(l => l.type==='hadir' && l.statusIn==='Tepat Waktu').length;
-        const lambat = logs.filter(l => l.type==='hadir' && l.statusIn==='Terlambat').length;
-        const izinSakit = logs.filter(l => l.type==='izin' || l.type==='sakit').length;
-        const alpa = logs.filter(l => l.type==='alpa').length;
-        const hadir = tepat + lambat;
-        let skor = '-';
-        if(logs.length > 0) skor = Math.round(((tepat*100)+(lambat*70)+(izinSakit*80)+(alpa*0)) / logs.length) + '/100';
-        rows.push(`"${t.name}",${hadir},${tepat},${lambat},${izinSakit},${alpa},"${skor}"`);
+
+    const rows = [];
+    rows.push(`"Laporan Presensi Guru - ${monthLabel}"`);
+    rows.push('"Nama Guru","Total Hadir","Tepat Waktu","Terlambat","Izin/Sakit","Alpa","Skor","Keterangan Penilaian"');
+
+    const summaryRows = buildReportSummary(m);
+    summaryRows.forEach((item) => {
+        const skorText = item.skor === '-' ? '-' : `${item.skor}/100`;
+        rows.push(`"${item.teacher.name}",${item.hadirTotal},${item.tepat},${item.lambat},${item.izinSakit},${item.alpa},"${skorText}","${item.label}"`);
     });
-    
+
+    rows.push('');
+    rows.push('"Keterangan Skor"');
+    rows.push('"90-100 = Sangat Baik"');
+    rows.push('"80-89 = Baik"');
+    rows.push('"70-79 = Cukup"');
+    rows.push('"< 70 = Perlu Perbaikan"');
+
     const csvContent = "data:text/csv;charset=utf-8," + rows.join("\n");
     const link = document.createElement("a");
     link.href = encodeURI(csvContent);
     link.download = `Laporan_Presensi_${m}.csv`;
     link.click();
-});
+}
 
+function exportReportPdf() {
+    const m = document.getElementById("select-report-month").value;
+    const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+    const [yr, mo] = m.split('-');
+    const monthLabel = `${monthNames[parseInt(mo)-1]} ${yr}`;
+    const printedDate = new Date().toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
+
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert('Library PDF belum siap. Silakan refresh halaman dan coba lagi.');
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let y = 18;
+
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageWidth, 35, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('Laporan Presensi Guru', 14, y + 8);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Periode: ${monthLabel}`, 14, y + 15);
+    doc.text('Sistem Presensi Digital', 14, y + 21);
+
+    doc.setTextColor(0, 0, 0);
+    y = 46;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('SMK Bidayatul Hidayah', 14, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Nama Sekolah', 14, y + 5);
+    doc.text(`Dicetak tanggal: ${printedDate}`, pageWidth - 54, y + 5);
+
+    y += 12;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('Keterangan Penilaian', 14, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('90-100 = Sangat Baik', 14, y);
+    doc.text('80-89 = Baik', 56, y);
+    doc.text('70-79 = Cukup', 98, y);
+    doc.text('< 70 = Perlu Perbaikan', 140, y);
+    y += 8;
+
+    const summaryRows = buildReportSummary(m);
+    summaryRows.forEach((item, index) => {
+        if (y > 250) {
+            doc.addPage();
+            y = 18;
+        }
+
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(12, y - 3, pageWidth - 24, 24, 2, 2, 'S');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text(`${index + 1}. ${item.teacher.name}`, 16, y + 3);
+
+        const skorText = item.skor === '-' ? '-' : `${item.skor}/100`;
+        const scoreColor = item.skor >= 90 ? [24, 121, 81] : item.skor >= 80 ? [37, 99, 235] : item.skor >= 70 ? [217, 119, 6] : [185, 28, 28];
+        doc.setTextColor(...scoreColor);
+        doc.text(`Skor: ${skorText}`, pageWidth - 44, y + 3);
+        doc.setTextColor(0, 0, 0);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.text(`Hadir ${item.hadirTotal} | Tepat ${item.tepat} | Lambat ${item.lambat} | Izin/Sakit ${item.izinSakit} | Alpa ${item.alpa}`, 16, y + 10);
+        doc.text(`Penilaian: ${item.label}`, 16, y + 16);
+        y += 28;
+    });
+
+    y = 270;
+    doc.setDrawColor(180, 180, 180);
+    doc.line(14, y, 70, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Disetujui oleh', 14, y + 6);
+    doc.text('Kepala Sekolah', 14, y + 12);
+
+    doc.line(pageWidth - 70, y, pageWidth - 14, y);
+    doc.text('Admin', pageWidth - 70, y + 6);
+    doc.text('Penanggung Jawab', pageWidth - 70, y + 12);
+
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Dicetak dari sistem presensi guru digital.', 14, 290);
+    doc.save(`Laporan_Presensi_${m}.pdf`);
+}
+
+document.getElementById("btn-export-csv")?.addEventListener("click", exportReportCsv);
+document.getElementById("btn-export-pdf")?.addEventListener("click", exportReportPdf);
 
 // ==========================================================================
 // BOOTSTRAP
