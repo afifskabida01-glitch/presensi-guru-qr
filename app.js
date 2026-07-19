@@ -14,6 +14,72 @@ let state = {
     activeToken: ""
 };
 
+const SETTINGS_DOC_ID = "app";
+
+function getSettingsTimeValue() {
+    return state.settings?.defaultCheckIn || "07:00";
+}
+
+function setSettingsTimeValue(timeStr) {
+    if(!timeStr) return;
+    state.settings = state.settings || {};
+    state.settings.defaultCheckIn = timeStr;
+    if (!isFirebaseActive || !db) {
+        localStorage.setItem("qr_presensi_settings_defaultCheckIn", timeStr);
+    }
+}
+
+async function loadSettings() {
+    try {
+        if(isFirebaseActive && db) {
+            const snap = await db.collection("settings").doc(SETTINGS_DOC_ID).get();
+            if(snap.exists) {
+                const data = snap.data();
+                if(data && data.defaultCheckIn) setSettingsTimeValue(data.defaultCheckIn);
+            }
+        } else {
+            const saved = localStorage.getItem("qr_presensi_settings_defaultCheckIn");
+            if(saved) setSettingsTimeValue(saved);
+        }
+    } catch(e) {
+        console.warn("Gagal load settings:", e);
+    }
+}
+
+function renderAdminWajibHadir() {
+    const input = document.getElementById("admin-wajib-hadir-time");
+    if(!input) return;
+    input.value = getSettingsTimeValue();
+}
+
+function bindAdminWajibHadirSave() {
+    const btn = document.getElementById("btn-save-admin-wajib-hadir");
+    const input = document.getElementById("admin-wajib-hadir-time");
+    if(!btn || !input) return;
+
+    btn.addEventListener("click", async () => {
+        if(currentUser?.role !== 'admin') return;
+        const v = input.value;
+        if(!v) return alert("Waktu wajib hadir tidak boleh kosong");
+
+        setSettingsTimeValue(v);
+
+        if(isFirebaseActive && db) {
+            try {
+                await db.collection("settings").doc(SETTINGS_DOC_ID).set({ defaultCheckIn: v }, { merge: true });
+            } catch(e) {
+                console.error("Gagal menyimpan settings:", e);
+                alert("Gagal menyimpan ke Firebase. Coba lagi.");
+            }
+        }
+
+        // Update UI guru bila sudah terbuka
+        const wajibGuru = document.getElementById("guru-wajib-hadir-time");
+        if(wajibGuru) wajibGuru.textContent = v;
+    });
+}
+
+
 let currentUser = null; // { role: 'admin'|'guru', data: {} }
 let db = null;
 let qrHelper = null;
@@ -183,6 +249,10 @@ function setupLocalStorageFallback() {
     state.schedules = JSON.parse(localStorage.getItem('qr_presensi_schedules')) || [];
     state.attendance = JSON.parse(localStorage.getItem('qr_presensi_attendance')) || [];
     state.admins = JSON.parse(localStorage.getItem('qr_presensi_admins')) || [{ id: "admin1", username: "admin", password: "123", role: "superadmin" }];
+
+    // load settings defaultCheckIn dari localStorage bila belum ada Firebase
+    const savedCheckIn = localStorage.getItem("qr_presensi_settings_defaultCheckIn");
+    if(savedCheckIn) state.settings.defaultCheckIn = savedCheckIn;
 }
 
 window.resetDatabaseLocal = function() {
@@ -234,8 +304,13 @@ function getAcuanHadir(teacher, dateObj) {
             wajibHadir: true
         };
     }
-    
-    return { jam: "-", mapel: "Tidak Wajib Hadir", wajibHadir: false };
+
+    // Fallback: guru tanpa jadwal/piket hari ini
+    return {
+        jam: state.settings?.defaultCheckIn || "07:00",
+        mapel: "Wajib (Default)",
+        wajibHadir: true
+    };
 }
 
 function determineStatusIn(timeScanned, acuanJam) {
@@ -346,6 +421,10 @@ function initGuruView() {
     
     const now = new Date();
     document.getElementById("guru-today-day").textContent = getDayName(now);
+    
+    // Display waktu wajib hadir (read-only untuk guru)
+    const wajibEl = document.getElementById("guru-wajib-hadir-time");
+    if(wajibEl) wajibEl.textContent = state.settings?.defaultCheckIn || "07:00";
     
     // Render Schedule
     const scheduleBox = document.getElementById("guru-schedule-list");
@@ -985,7 +1064,7 @@ function populateJadwalGrid() {
     
     const t = state.teachers.find(x => x.id === tId);
     grid.innerHTML = "";
-    ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"].forEach(day => {
+    ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"].forEach(day => {
         const sch = state.schedules.find(s => s.teacherId === tId && s.day === day);
         let eHtml = "";
         if (sch && sch.entries.length > 0) {
@@ -1420,5 +1499,16 @@ document.getElementById("btn-export-pdf")?.addEventListener("click", exportRepor
 // ==========================================================================
 window.addEventListener("load", () => {
     initDatabase();
+    // Load pengaturan wajib hadir (default fallback 07:00)
+    setTimeout(() => {
+        loadSettings().then(() => {
+            // Pastikan UI admin terisi saat sudah render
+            renderAdminWajibHadir();
+            bindAdminWajibHadirSave();
+            // Update display guru bila sudah berada di view guru
+            const wajibGuru = document.getElementById("guru-wajib-hadir-time");
+            if (wajibGuru) wajibGuru.textContent = getSettingsTimeValue();
+        });
+    }, 1000);
 });
 
