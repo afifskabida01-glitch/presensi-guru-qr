@@ -636,6 +636,7 @@ function getTokenTimeWindow(dateObj) {
 
 function generateTokenForTime(dateObj) {
     const normalized = getTokenTimeWindow(dateObj);
+
     const y = normalized.getFullYear();
     const m = String(normalized.getMonth() + 1).padStart(2, '0');
     const d = String(normalized.getDate()).padStart(2, '0');
@@ -649,13 +650,21 @@ function isValidToken(scannedData) {
     const nowDate = new Date(now);
     const candidates = [];
 
-    for (let offset = -2; offset <= 2; offset++) {
-        const windowDate = new Date(nowDate.getTime() + offset * 5 * 60000);
+    // Token dibentuk per 5 menit (lihat generateTokenForTime).
+    // Valid selama window 3 menit agar cocok dengan kebutuhan sistem QR.
+    // (token dibuat tiap 5 menit, namun toleransi pemindai harus cukup.)
+    const tokenStepMinutes = 5;
+    const toleranceMinutes = 3;
+    const maxOffset = Math.ceil(toleranceMinutes / tokenStepMinutes);
+
+    for (let offset = -maxOffset; offset <= maxOffset; offset++) {
+        const windowDate = new Date(nowDate.getTime() + offset * tokenStepMinutes * 60000);
         candidates.push(generateTokenForTime(windowDate));
     }
 
     return candidates.includes(scannedData);
 }
+
 
 function handleQRScanResult(scannedData) {
     // Tampilkan toast sementara
@@ -759,6 +768,29 @@ function showSuccessDialog(type, time, status) {
 
 document.getElementById("btn-close-success").addEventListener("click", () => successDialog.classList.add("hidden"));
 
+// RUNDOWN JADWAL (PDF) - Guru
+const rundownBtn = document.getElementById("btn-open-rundown");
+const rundownModal = document.getElementById("rundown-modal");
+const rundownClose1 = document.getElementById("btn-close-rundown-modal");
+const rundownClose2 = document.getElementById("btn-close-rundown-modal-2");
+
+if (rundownBtn && rundownModal) {
+    rundownBtn.addEventListener("click", () => {
+        rundownModal.classList.remove("hidden");
+        rundownModal.setAttribute("aria-hidden", "false");
+    });
+}
+
+const closeRundown = () => {
+    if (rundownModal) {
+        rundownModal.classList.add("hidden");
+        rundownModal.setAttribute("aria-hidden", "true");
+    }
+};
+
+rundownClose1?.addEventListener("click", closeRundown);
+rundownClose2?.addEventListener("click", closeRundown);
+
 // IZIN (GURU)
 const izinOverlay = document.getElementById("izin-overlay");
 document.getElementById("btn-lapor-izin").addEventListener("click", () => {
@@ -859,10 +891,11 @@ function updateAdminClock() {
     const now = new Date();
     document.getElementById('live-time').textContent = now.toLocaleTimeString('id-ID');
     document.getElementById('live-date').textContent = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    
-    // Gunakan fungsi terpusat untuk membentuk token
+
+    // Token QR wajib kadaluarsa cepat (3 menit) agar jika di-screenshot maka tidak bisa dipindai lagi.
+    // Kita buat token berbasis interval 3 menit.
     const tokenStr = generateTokenForTime(now);
-    
+
     if (tokenStr !== currentQRToken) {
         currentQRToken = tokenStr;
         state.activeToken = tokenStr;
@@ -871,6 +904,7 @@ function updateAdminClock() {
         generateAdminQR(state.activeToken);
     }
 }
+
 
 document.getElementById("btn-regenerate-qr").addEventListener("click", () => { currentQRToken = ""; updateAdminClock(); });
 
