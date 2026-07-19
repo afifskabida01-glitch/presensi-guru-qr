@@ -416,9 +416,21 @@ document.getElementById("btn-logout-guru").addEventListener('click', () => {
 function initGuruView() {
     if(!currentUser || currentUser.role !== 'guru') return;
     
+    // mulai timer notifikasi pergantian kelas
+    startRundownClassNotify();
+
     const t = currentUser.data;
+
     document.getElementById("guru-name-display").textContent = t.name;
     document.getElementById("guru-avatar-init").textContent = t.name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
+
+    // Pastikan selalu reset modal rundown sesuai kondisi: tampilkan saat masuk view saja
+    // (hindari efek ganda saat render ulang akibat submit/refresh status).
+    const rundownModalEl = document.getElementById("rundown-modal");
+    if(rundownModalEl && !sessionStorage.getItem('qr_presensi_rundown_shown_once')) {
+        sessionStorage.setItem('qr_presensi_rundown_shown_once','1');
+        showRundownModal();
+    }
     
     const now = new Date();
     document.getElementById("guru-today-day").textContent = getDayName(now);
@@ -426,12 +438,9 @@ function initGuruView() {
     // Render Schedule
     const scheduleBox = document.getElementById("guru-schedule-list");
 
-    // Tampilkan rundown jadwal secara live (tanpa perlu tombol open ulang), mengikuti gaya HP
-    // (modal akan muncul sekali saat guru masuk view).
-    showRundownModal();
-
     const dayName = getDayName(now);
     const schedule = state.schedules.find(s => s.teacherId === t.id && s.day === dayName);
+
 
     // Display waktu wajib hadir (read-only untuk guru, hanya jika wajib)
     const wajibEl = document.getElementById("guru-wajib-hadir-time");
@@ -773,7 +782,137 @@ function showSuccessDialog(type, time, status) {
 
 document.getElementById("btn-close-success").addEventListener("click", () => successDialog.classList.add("hidden"));
 
+// ======================================================================
+// NOTIFIKASI PERGANTIAN KELAS (HP mode)
+// ======================================================================
+let rundownClassNotifyTimer = null;
+let lastRundownClassKey = "";
+
+function stopRundownClassNotify() {
+    if (rundownClassNotifyTimer) {
+        clearInterval(rundownClassNotifyTimer);
+        rundownClassNotifyTimer = null;
+    }
+}
+
+function getNowHHmm() {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+}
+
+function parseHHmmToMinutes(hhmm) {
+    if (!hhmm || typeof hhmm !== 'string') return null;
+    const parts = hhmm.split(':');
+    if (parts.length !== 2) return null;
+    const hh = parseInt(parts[0], 10);
+    const mm = parseInt(parts[1], 10);
+    if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+    return hh * 60 + mm;
+}
+
+function getTodayEntriesForGuru(teacher, dayName) {
+    const schedule = state.schedules.find(s => s.teacherId === teacher.id && s.day === dayName);
+    let entries = [];
+    if (schedule && Array.isArray(schedule.entries)) {
+        entries = [...schedule.entries];
+    }
+
+    if (teacher?.picketDay === dayName) {
+        entries.push({ jamMulai: teacher.picketCheckIn || '06:45', mapel: 'Guru Piket', kelas: '' });
+    }
+
+    entries.sort((a, b) => (a.jamMulai || '00:00').localeCompare(b.jamMulai || '00:00'));
+    return entries;
+}
+
+function showClassChangeNotify(message) {
+    let wrap = document.getElementById('guru-class-change-toast');
+    if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.id = 'guru-class-change-toast';
+        wrap.style.position = 'fixed';
+        wrap.style.left = '50%';
+        wrap.style.transform = 'translateX(-50%)';
+        wrap.style.bottom = '120px';
+        wrap.style.zIndex = '120';
+        wrap.style.background = 'rgba(0,0,0,0.75)';
+        wrap.style.border = '1px solid rgba(255,255,255,0.12)';
+        wrap.style.color = 'white';
+        wrap.style.padding = '12px 16px';
+        wrap.style.borderRadius = '14px';
+        wrap.style.fontWeight = '800';
+        wrap.style.fontSize = '14px';
+        wrap.style.textAlign = 'center';
+        wrap.style.maxWidth = '92vw';
+        wrap.style.display = 'none';
+        document.body.appendChild(wrap);
+    }
+
+    wrap.textContent = message;
+    wrap.style.display = 'block';
+
+    clearTimeout(window.__guruClassChangeToastHideTimer);
+    window.__guruClassChangeToastHideTimer = setTimeout(() => {
+        wrap.style.display = 'none';
+    }, 5000);
+}
+
+function tickRundownClassNotify() {
+    if (!currentUser || currentUser.role !== 'guru') return;
+
+    const teacher = currentUser.data;
+    const dayName = getDayName(new Date());
+    const entries = getTodayEntriesForGuru(teacher, dayName);
+
+    if (entries.length < 2) {
+        lastRundownClassKey = '';
+        return;
+    }
+
+    const nowMin = parseHHmmToMinutes(getNowHHmm());
+    if (nowMin === null) return;
+
+    // currentIdx = last entry with jamMulai <= now
+    let currentIdx = -1;
+    for (let i = 0; i < entries.length; i++) {
+        const m = parseHHmmToMinutes(entries[i].jamMulai);
+        if (m === null) continue;
+        if (m <= nowMin) currentIdx = i;
+    }
+
+    const nextIdx = currentIdx + 1;
+    if (nextIdx >= entries.length) return;
+
+    const nextJam = entries[nextIdx].jamMulai;
+    const nextMin = parseHHmmToMinutes(nextJam);
+    if (nextMin === null) return;
+
+    // notify only when time reached/ passed nextJam
+    if (nowMin < nextMin) return;
+
+    const currentJam = entries[currentIdx]?.jamMulai || '';
+    const nextMapel = entries[nextIdx]?.mapel || '';
+    const nextKelas = entries[nextIdx]?.kelas || '';
+
+    const key = `${dayName}|${teacher.id}|${currentJam}|${nextJam}`;
+    if (key === lastRundownClassKey) return;
+    lastRundownClassKey = key;
+
+    const kelasStr = nextKelas ? ` (${nextKelas})` : '';
+    showClassChangeNotify(`Waktunya masuk kelas berikutnya: ${nextMapel}${kelasStr}`);
+}
+
+function startRundownClassNotify() {
+    stopRundownClassNotify();
+    lastRundownClassKey = '';
+    tickRundownClassNotify();
+    rundownClassNotifyTimer = setInterval(tickRundownClassNotify, 30000); // 30 detik
+}
+
 // RUNDOWN JADWAL (PDF) - Guru
+
 const rundownBtn = document.getElementById("btn-open-rundown");
 const rundownModal = document.getElementById("rundown-modal");
 const rundownClose1 = document.getElementById("btn-close-rundown-modal");
