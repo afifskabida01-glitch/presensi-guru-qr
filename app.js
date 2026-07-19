@@ -305,11 +305,11 @@ function getAcuanHadir(teacher, dateObj) {
         };
     }
 
-    // Fallback: guru tanpa jadwal/piket hari ini
+    // Fallback: guru tanpa jadwal/piket hari ini (tidak wajib)
     return {
-        jam: state.settings?.defaultCheckIn || "07:00",
-        mapel: "Wajib (Default)",
-        wajibHadir: true
+        jam: "-",
+        mapel: "Tidak Wajib",
+        wajibHadir: false
     };
 }
 
@@ -422,14 +422,24 @@ function initGuruView() {
     const now = new Date();
     document.getElementById("guru-today-day").textContent = getDayName(now);
     
-    // Display waktu wajib hadir (read-only untuk guru)
-    const wajibEl = document.getElementById("guru-wajib-hadir-time");
-    if(wajibEl) wajibEl.textContent = state.settings?.defaultCheckIn || "07:00";
-    
     // Render Schedule
     const scheduleBox = document.getElementById("guru-schedule-list");
     const dayName = getDayName(now);
     const schedule = state.schedules.find(s => s.teacherId === t.id && s.day === dayName);
+
+    // Display waktu wajib hadir (read-only untuk guru, hanya jika wajib)
+    const wajibEl = document.getElementById("guru-wajib-hadir-time");
+    const wajibInfoEl = document.getElementById("guru-wajib-hadir-info");
+    const acuan = getAcuanHadir(t, now);
+    if(wajibEl) {
+        if(acuan && acuan.wajibHadir) {
+            wajibEl.textContent = acuan.jam && acuan.jam !== "-" ? acuan.jam : (state.settings?.defaultCheckIn || "07:00");
+            if(wajibInfoEl) wajibInfoEl.style.display = "block";
+        } else {
+            if(wajibInfoEl) wajibInfoEl.style.display = "none";
+        }
+    }
+
     
     let schHtml = "";
     if (t.picketDay === dayName) {
