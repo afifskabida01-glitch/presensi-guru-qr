@@ -425,6 +425,11 @@ function initGuruView() {
     
     // Render Schedule
     const scheduleBox = document.getElementById("guru-schedule-list");
+
+    // Tampilkan rundown jadwal secara live (tanpa perlu tombol open ulang), mengikuti gaya HP
+    // (modal akan muncul sekali saat guru masuk view).
+    showRundownModal();
+
     const dayName = getDayName(now);
     const schedule = state.schedules.find(s => s.teacherId === t.id && s.day === dayName);
 
@@ -775,11 +780,20 @@ const rundownClose1 = document.getElementById("btn-close-rundown-modal");
 const rundownClose2 = document.getElementById("btn-close-rundown-modal-2");
 
 if (rundownBtn && rundownModal) {
+    // Tidak perlu pencet open lagi: langsung tampil (sekali modal dibuka otomatis saat guru masuk).
     rundownBtn.addEventListener("click", () => {
         rundownModal.classList.remove("hidden");
         rundownModal.setAttribute("aria-hidden", "false");
     });
 }
+
+function showRundownModal() {
+    const m = document.getElementById("rundown-modal");
+    if(!m) return;
+    m.classList.remove("hidden");
+    m.setAttribute("aria-hidden", "false");
+}
+
 
 const closeRundown = () => {
     if (rundownModal) {
