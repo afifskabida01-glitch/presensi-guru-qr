@@ -305,11 +305,12 @@ function getAcuanHadir(teacher, dateObj) {
         };
     }
 
-    // Fallback: guru tanpa jadwal/piket hari ini (tidak wajib)
+    // Fallback: guru tanpa jadwal/piket hari ini -> dianggap wajib hadir
+    // menggunakan "Waktu Wajib Hadir" (di-set admin)
     return {
-        jam: "-",
-        mapel: "Tidak Wajib",
-        wajibHadir: false
+        jam: getSettingsTimeValue(),
+        mapel: "Wajib Hadir (Default)",
+        wajibHadir: true
     };
 }
 

@@ -118,10 +118,19 @@
                 </div>
 
                 <!-- Riwayat Pribadi -->
-                <div class="guru-card">
-                    <h4 style="margin-bottom:12px; font-size:14px; color:var(--text-secondary)">Riwayat Terakhir Anda</h4>
+                <div class="guru-card" style="gap: 12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px;">
+                        <h4 style="margin-bottom:12px; font-size:14px; color:var(--text-secondary)">Riwayat Terakhir Anda</h4>
+                    </div>
+                    <div style="margin-top: -6px; margin-bottom: 4px;">
+                        <button class="btn btn-secondary" id="btn-open-rundown" style="width:100%; justify-content:center; padding: 12px 14px;">
+                            <i class="fa-solid fa-file-lines"></i> Lihat Rundown Jadwal (HD)
+                        </button>
+                    </div>
                     <div class="personal-log-list" id="guru-personal-logs"></div>
                 </div>
+
+
             </div>
         </div>
 
@@ -149,6 +158,36 @@
                 </div>
                 <!-- Status pesan saat QR terdeteksi -->
                 <div id="scan-result-toast" class="scan-result-toast hidden">✅ QR Terdeteksi!</div>
+            </div>
+        </div>
+
+        <!-- Lihat Rundown Jadwal (Kualitas Tinggi) -->
+        <div class="modal-overlay hidden" id="rundown-modal" aria-hidden="true">
+            <div class="modal-card glass-card animate-modal" style="max-width: 860px; width: 96vw;">
+                <div class="modal-header">
+                    <h3>Rundown Jadwal (Kualitas Tinggi)</h3>
+                    <button class="btn-close-modal" id="btn-close-rundown-modal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body" style="padding: 16px 20px 20px;">
+                    <div style="display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom: 12px;">
+                        <div style="font-size:13px; color: var(--text-secondary);">
+                            Menampilkan dokumen jadwal sekolah.
+                        </div>
+                        <div>
+                            <button class="btn btn-secondary" id="btn-rundown-zoom-out" style="padding: 10px 14px;"><i class="fa-solid fa-magnifying-minus"></i></button>
+                            <button class="btn btn-secondary" id="btn-rundown-zoom-in" style="padding: 10px 14px; margin-left: 8px;"><i class="fa-solid fa-magnifying-plus"></i></button>
+                        </div>
+                    </div>
+                    <div style="border:1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow:hidden; background: rgba(0,0,0,0.25);">
+                        <iframe id="rundown-pdf-frame" src="jadwal_pelajaran_2026_27.pdf" style="width: 100%; height: 70vh; border: 0;" allowfullscreen></iframe>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">
+                        Jika tampilan tidak jelas, gunakan tombol zoom (+/-).
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="btn-close-rundown-modal-2"><i class="fa-solid fa-check"></i> Selesai</button>
+                </div>
             </div>
         </div>
 
