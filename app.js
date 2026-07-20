@@ -324,8 +324,23 @@ function determineStatusIn(timeScanned, acuanJam) {
 // ==========================================================================
 
 function navigateTo(viewId) {
+    // reset semua view
     document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
-    document.getElementById(viewId).classList.add('active');
+
+    // reset tab admin (khusus mobile bottom-nav)
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+    const target = document.getElementById(viewId);
+    if(target) target.classList.add('active');
+
+    // jika masuk admin, default aktifkan dashboard agar layout stabil di HP
+    if(viewId === 'view-admin') {
+        const dashNav = document.querySelector('.nav-item[data-tab="dashboard"]');
+        dashNav?.classList.add('active');
+        const dashTab = document.getElementById('tab-dashboard');
+        dashTab?.classList.add('active');
+    }
 }
 
 function checkSession() {
