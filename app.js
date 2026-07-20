@@ -437,17 +437,12 @@ function initGuruView() {
 
     const t = currentUser.data;
 
-    document.getElementById("guru-name-display").textContent = t.name;
+document.getElementById("guru-name-display").textContent = t.name;
     document.getElementById("guru-avatar-init").textContent = t.name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
 
-    // Pastikan selalu reset modal rundown sesuai kondisi: tampilkan saat masuk view saja
-    // (hindari efek ganda saat render ulang akibat submit/refresh status).
-    const rundownModalEl = document.getElementById("rundown-modal");
-    if(rundownModalEl && !sessionStorage.getItem('qr_presensi_rundown_shown_once')) {
-        sessionStorage.setItem('qr_presensi_rundown_shown_once','1');
-        showRundownModal();
-    }
-    
+    // Rundown PDF tidak otomatis muncul saat login/scan guru.
+    // Guru dapat membukanya melalui tombol "Lihat Rundown Jadwal".
+
     const now = new Date();
     document.getElementById("guru-today-day").textContent = getDayName(now);
     
