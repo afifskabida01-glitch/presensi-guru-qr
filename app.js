@@ -1763,5 +1763,27 @@ window.addEventListener("load", () => {
             if (wajibGuru) wajibGuru.textContent = getSettingsTimeValue();
         });
     }, 1000);
+
+    // Sinkronkan UI saat pindah ukuran layar (HP <-> Komputer) tanpa reload.
+    // breakpoint harus ikut CSS responsive di style.css (max-width:768px)
+    try {
+        const mql = window.matchMedia("(max-width: 768px)");
+        const onChange = () => {
+            if(!currentUser) return;
+            // panggil ulang route untuk reset state UI
+            if(currentUser.role === 'admin') {
+                navigateTo('view-admin');
+                initAdminView();
+            } else if(currentUser.role === 'guru') {
+                navigateTo('view-guru');
+                initGuruView();
+            }
+        };
+        mql.addEventListener('change', onChange);
+        // run sekali saat load
+        onChange();
+    } catch(e) {
+        // fallback: abaikan bila browser tidak support
+    }
 });
 
