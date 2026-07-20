@@ -1357,11 +1357,15 @@ window.openJadwalForTeacher = function(id) {
 
 const jadwalModal = document.getElementById("jadwal-modal");
 window.openJadwalModal = function(day) {
-    document.getElementById("jadwal-teacher-id").value = selectJadwalTeacher.value;
+    const tId = selectJadwalTeacher.value;
+    document.getElementById("jadwal-teacher-id").value = tId;
     document.getElementById("jadwal-day").value = day;
     document.getElementById("jadwal-day-display").value = day;
-    
-    const tId = selectJadwalTeacher.value;
+
+    const tObj = state.teachers.find(x => x.id === tId);
+    const teacherNameInput = document.getElementById("jadwal-teacher-name-display");
+    if(teacherNameInput) teacherNameInput.value = tObj?.name || "";
+
     const sch = state.schedules.find(s => s.teacherId === tId && s.day === day);
     const container = document.getElementById("jadwal-entries-container");
     container.innerHTML = "";
