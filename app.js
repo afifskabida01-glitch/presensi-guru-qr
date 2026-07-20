@@ -828,6 +828,11 @@ function getTodayEntriesForGuru(teacher, dayName) {
 }
 
 function showClassChangeNotify(message) {
+    if (!currentUser || currentUser.role !== 'guru') return;
+
+    // contoh: Hindari dobel render toast bila timer interval lebih dari sekali
+    // (lastRundownClassKey sudah mengontrol dobel notif)
+
     let wrap = document.getElementById('guru-class-change-toast');
     if (!wrap) {
         wrap = document.createElement('div');
@@ -1305,27 +1310,62 @@ window.openJadwalModal = function(day) {
 document.getElementById("btn-close-jadwal-modal").addEventListener("click", () => jadwalModal.classList.add("hidden"));
 document.getElementById("btn-add-jadwal-entry").addEventListener("click", () => addJadwalEntryRow());
 function addJadwalEntryRow(jam="07:00", mapel="", kelas="") {
-    const div = document.createElement("div"); div.innerHTML = `
+    const container = document.getElementById("jadwal-entries-container");
+    if(!container) return;
+
+    const div = document.createElement("div");
+    div.innerHTML = `
         <div style="display:flex; gap:10px; margin-bottom:5px;">
             <input type="time" class="j-jam" value="${jam}" required>
             <input type="text" class="j-mapel" value="${mapel}" placeholder="Mapel" required>
             <input type="text" class="j-kelas" value="${kelas}" placeholder="Kelas" required>
             <button type="button" class="btn-icon" onclick="this.parentElement.parentElement.remove()" style="background:rgba(239, 68, 68, 0.2); color:#ef4444;"><i class="fa-solid fa-xmark"></i></button>
         </div>`;
-    document.getElementById("jadwal-entries-container").appendChild(div);
+
+    container.appendChild(div);
 }
+
 document.getElementById("btn-save-jadwal").addEventListener("click", () => {
     const tId = document.getElementById("jadwal-teacher-id").value;
     const day = document.getElementById("jadwal-day").value;
-    const entries = [];
-    document.getElementById("jadwal-entries-container").querySelectorAll("div > div").forEach(row => {
-        entries.push({ jamMulai: row.querySelector(".j-jam").value, mapel: row.querySelector(".j-mapel").value, kelas: row.querySelector(".j-kelas").value });
+    const container = document.getElementById("jadwal-entries-container");
+    if (!container) return;
+
+    const rows = container.querySelectorAll("div > div");
+    const rawEntries = [];
+
+    rows.forEach(row => {
+        const jamEl = row.querySelector(".j-jam");
+        const mapelEl = row.querySelector(".j-mapel");
+        const kelasEl = row.querySelector(".j-kelas");
+        const jamMulai = jamEl?.value;
+        const mapel = mapelEl?.value;
+        const kelas = kelasEl?.value;
+
+        // filter entri kosong
+        if (!jamMulai || !mapel || !mapel.trim()) return;
+
+        rawEntries.push({
+            jamMulai,
+            mapel: mapel.trim(),
+            kelas: (kelas || "").trim()
+        });
     });
-    
+
+    // dedup: jamMulai|mapel|kelas
+    const seen = new Set();
+    const entries = [];
+    rawEntries.forEach(e => {
+        const key = `${e.jamMulai}|${e.mapel}|${e.kelas}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        entries.push(e);
+    });
+
     let schId = "S_" + tId + "_" + day;
     const existing = state.schedules.find(s => s.teacherId === tId && s.day === day);
     if(existing && existing.id) schId = existing.id;
-    
+
     const newData = { id: schId, teacherId: tId, day, entries };
     saveData("schedules", schId, newData).then(() => {
         jadwalModal.classList.add("hidden");
