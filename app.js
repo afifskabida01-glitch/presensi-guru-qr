@@ -319,6 +319,7 @@ function determineStatusIn(timeScanned, acuanJam) {
     return (timeScanned.substring(0, 5) <= acuanJam) ? "Tepat Waktu" : "Terlambat";
 }
 
+
 // ==========================================================================
 // ROUTING & VIEW CONTROLLER
 // ==========================================================================
@@ -1019,7 +1020,10 @@ function initAdminView() {
     
     if(adminClockInterval) clearInterval(adminClockInterval);
     adminClockInterval = setInterval(updateAdminClock, 1000);
+
 }
+
+
 
 // ===================== QR CODE GENERATOR (Admin - qrcode.js) =====================
 let currentQRInstance = null;
@@ -1282,22 +1286,69 @@ function populateJadwalGrid() {
     
     const t = state.teachers.find(x => x.id === tId);
     grid.innerHTML = "";
+
+    const now = new Date();
+    const dayNameNow = getDayName(now);
+    const nowMin = parseHHmmToMinutes(getNowHHmm());
+
     ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"].forEach(day => {
         const sch = state.schedules.find(s => s.teacherId === tId && s.day === day);
-        let eHtml = "";
-        if (sch && sch.entries.length > 0) {
-            [...sch.entries].sort((a, b) => a.jamMulai.localeCompare(b.jamMulai)).forEach(e => {
-                eHtml += `<div class="jadwal-entry">${e.jamMulai} - ${e.mapel} (${e.kelas})</div>`;
-            });
+        let entries = [];
+
+        if (sch && sch.entries && sch.entries.length > 0) {
+            entries = [...sch.entries];
         }
+        if (t?.picketDay === day) {
+            entries.push({ jamMulai: t.picketCheckIn || '06:45', jamSelesai: '', mapel: 'Guru Piket', kelas: '' });
+
+
+        }
+
+        entries.sort((a, b) => (a.jamMulai || '00:00').localeCompare(b.jamMulai || '00:00'));
+
+        const startJam = entries[0]?.jamMulai || '-';
+
+        let nextInfoHtml = '';
+        if (day === dayNameNow && nowMin !== null && entries.length > 0) {
+            // next entry with jamMulai > now
+            const nextEntry = entries.find(e => {
+                const m = parseHHmmToMinutes(e.jamMulai);
+                return m !== null && m > nowMin;
+            });
+
+            if (nextEntry) {
+                nextInfoHtml = `<div class="jadwal-entry" style="background: rgba(91,134,182,0.10); border-left-color: #5b86b6;">
+                    Next: ${nextEntry.jamMulai} - ${nextEntry.mapel}${nextEntry.kelas ? ` (${nextEntry.kelas})` : ''}
+                </div>`;
+            } else {
+                nextInfoHtml = `<div class="jadwal-entry" style="background: rgba(16,185,129,0.10); border-left-color: #10b981;">
+                    Selesai semua kelas hari ini
+                </div>`;
+            }
+        }
+
+        let eHtml = '';
+        if(entries.length > 0) {
+            entries.forEach(e => {
+                const jamSelesaiStr = e.jamSelesai ? ` - ${e.jamSelesai}` : '';
+                eHtml += `<div class="jadwal-entry">${e.jamMulai}${jamSelesaiStr} - ${e.mapel} (${e.kelas})</div>`;
+            });
+
+        }
+
         grid.innerHTML += `
             <div class="jadwal-day-card" onclick="openJadwalModal('${day}')">
                 <div class="jadwal-day-header">${day}</div>
-                <div class="jadwal-day-body">${eHtml}</div>
+                <div class="jadwal-day-body">
+                    <div style="font-size:11px; color: var(--text-secondary); margin-bottom:10px;">Mulai: <strong style="color:var(--text-main);">${startJam}</strong></div>
+                    ${nextInfoHtml}
+                    ${eHtml}
+                </div>
             </div>
         `;
     });
 }
+
 window.openJadwalForTeacher = function(id) {
     navItems.forEach(n => n.classList.remove('active')); document.querySelector('[data-tab="jadwal"]').classList.add('active');
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.getElementById('tab-jadwal').classList.add('active');
@@ -1316,7 +1367,10 @@ window.openJadwalModal = function(day) {
     container.innerHTML = "";
     
     if (sch && sch.entries.length > 0) {
-        sch.entries.forEach(e => addJadwalEntryRow(e.jamMulai, e.mapel, e.kelas));
+        sch.entries.forEach(e => addJadwalEntryRow(e.jamMulai, e.jamSelesai, e.mapel, e.kelas));
+
+
+
     } else {
         addJadwalEntryRow();
     }
@@ -1324,14 +1378,16 @@ window.openJadwalModal = function(day) {
 }
 document.getElementById("btn-close-jadwal-modal").addEventListener("click", () => jadwalModal.classList.add("hidden"));
 document.getElementById("btn-add-jadwal-entry").addEventListener("click", () => addJadwalEntryRow());
-function addJadwalEntryRow(jam="07:00", mapel="", kelas="") {
+function addJadwalEntryRow(jamMulai="07:00", jamSelesai="07:50", mapel="", kelas="") {
+
     const container = document.getElementById("jadwal-entries-container");
     if(!container) return;
 
     const div = document.createElement("div");
     div.innerHTML = `
         <div style="display:flex; gap:10px; margin-bottom:5px;">
-            <input type="time" class="j-jam" value="${jam}" required>
+            <input type="time" class="j-jam" value="${jamMulai}" required>
+            <input type="time" class="j-jam-selesai" value="${jamSelesai}" required>
             <input type="text" class="j-mapel" value="${mapel}" placeholder="Mapel" required>
             <input type="text" class="j-kelas" value="${kelas}" placeholder="Kelas" required>
             <button type="button" class="btn-icon" onclick="this.parentElement.parentElement.remove()" style="background:rgba(239, 68, 68, 0.2); color:#ef4444;"><i class="fa-solid fa-xmark"></i></button>
@@ -1339,6 +1395,7 @@ function addJadwalEntryRow(jam="07:00", mapel="", kelas="") {
 
     container.appendChild(div);
 }
+
 
 document.getElementById("btn-save-jadwal").addEventListener("click", () => {
     const tId = document.getElementById("jadwal-teacher-id").value;
@@ -1350,28 +1407,34 @@ document.getElementById("btn-save-jadwal").addEventListener("click", () => {
     const rawEntries = [];
 
     rows.forEach(row => {
-        const jamEl = row.querySelector(".j-jam");
+        const jamMulaiEl = row.querySelector(".j-jam");
+        const jamSelesaiEl = row.querySelector(".j-jam-selesai");
         const mapelEl = row.querySelector(".j-mapel");
         const kelasEl = row.querySelector(".j-kelas");
-        const jamMulai = jamEl?.value;
+        const jamMulai = jamMulaiEl?.value;
+        const jamSelesai = jamSelesaiEl?.value;
         const mapel = mapelEl?.value;
         const kelas = kelasEl?.value;
+
 
         // filter entri kosong
         if (!jamMulai || !mapel || !mapel.trim()) return;
 
         rawEntries.push({
             jamMulai,
+            jamSelesai: jamSelesai || "",
             mapel: mapel.trim(),
             kelas: (kelas || "").trim()
         });
+
     });
 
     // dedup: jamMulai|mapel|kelas
     const seen = new Set();
     const entries = [];
     rawEntries.forEach(e => {
-        const key = `${e.jamMulai}|${e.mapel}|${e.kelas}`;
+        const key = `${e.jamMulai}|${e.jamSelesai}|${e.mapel}|${e.kelas}`;
+
         if (seen.has(key)) return;
         seen.add(key);
         entries.push(e);
