@@ -1364,7 +1364,10 @@ window.openJadwalModal = function(day) {
 
     const tObj = state.teachers.find(x => x.id === tId);
     const teacherNameInput = document.getElementById("jadwal-teacher-name-display");
-    if(teacherNameInput) teacherNameInput.value = tObj?.name || "";
+    if(teacherNameInput) {
+        // Jangan kosongkan kalau data guru belum ada/terlambat tersync.
+        if(tObj?.name) teacherNameInput.value = tObj.name;
+    }
 
     const sch = state.schedules.find(s => s.teacherId === tId && s.day === day);
     const container = document.getElementById("jadwal-entries-container");
