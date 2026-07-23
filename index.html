@@ -213,6 +213,27 @@
             </div>
         </div>
 
+        <!-- NOTIFIKASI PERGANTIAN MAPEL -->
+        <div class="class-change-overlay hidden" id="class-change-overlay">
+            <div class="class-change-card">
+                <div class="class-change-icon">
+                    <i class="fa-solid fa-bell"></i>
+                </div>
+                <div class="class-change-content">
+                    <p class="class-change-label">Waktunya Masuk Kelas!</p>
+                    <h3 class="class-change-mapel" id="cc-mapel">-</h3>
+                    <p class="class-change-detail" id="cc-detail">-</p>
+                    <div class="class-change-timer" id="cc-timer">
+                        <i class="fa-regular fa-clock"></i>
+                        <span id="cc-countdown">5</span> detik lagi
+                    </div>
+                </div>
+                <button class="class-change-dismiss" id="cc-dismiss">
+                    <i class="fa-solid fa-check"></i> Saya Tahu
+                </button>
+            </div>
+        </div>
+
         <!-- Success Dialog Guru -->
         <div class="success-dialog-overlay hidden" id="success-dialog">
             <div class="success-card glass-card">

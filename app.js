@@ -622,6 +622,42 @@ document.getElementById("btn-close-success").addEventListener("click", () => suc
 let rundownClassNotifyTimer = null;
 let lastRundownClassKey = "";
 
+// Audio context untuk suara notifikasi
+let ccAudioCtx = null;
+function playClassChangeSound() {
+    try {
+        if (!ccAudioCtx) {
+            ccAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        // Buat 3 beep pendek seperti bel
+        const now = ccAudioCtx.currentTime;
+        for (let i = 0; i < 3; i++) {
+            const osc = ccAudioCtx.createOscillator();
+            const gain = ccAudioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(ccAudioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, now + i * 0.2); // A5 = 880Hz
+            gain.gain.setValueAtTime(0.3, now + i * 0.2);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.2 + 0.15);
+            osc.start(now + i * 0.2);
+            osc.stop(now + i * 0.2 + 0.15);
+        }
+    } catch (e) {
+        console.warn('Audio notifikasi tidak tersedia:', e);
+    }
+}
+
+function vibrateDevice() {
+    try {
+        if (navigator.vibrate) {
+            navigator.vibrate([200, 100, 200, 100, 200]);
+        }
+    } catch (e) {
+        // ignore
+    }
+}
+
 function stopRundownClassNotify() {
     if (rundownClassNotifyTimer) {
         clearInterval(rundownClassNotifyTimer);
@@ -659,23 +695,95 @@ function getTodayEntriesForGuru(teacher, dayName) {
     return entries;
 }
 
-function showClassChangeNotify(message) {
+// Timer ID untuk countdown auto-dismiss
+let ccCountdownTimer = null;
+let ccAutoDismissTimer = null;
+const CC_DISMISS_SECONDS = 8;
+
+function hideClassChangeNotify() {
+    const overlay = document.getElementById('class-change-overlay');
+    if (!overlay) return;
+    
+    // Hentikan timer
+    if (ccCountdownTimer) {
+        clearInterval(ccCountdownTimer);
+        ccCountdownTimer = null;
+    }
+    if (ccAutoDismissTimer) {
+        clearTimeout(ccAutoDismissTimer);
+        ccAutoDismissTimer = null;
+    }
+    
+    // Animasi slide-up
+    const card = overlay.querySelector('.class-change-card');
+    if (card) {
+        card.style.animation = 'ccSlideUp 0.3s ease forwards';
+    }
+    
+    setTimeout(() => {
+        overlay.classList.add('hidden');
+        // Reset animasi untuk pemakaian berikutnya
+        if (card) {
+            card.style.animation = '';
+        }
+    }, 300);
+}
+
+function showClassChangeNotify(mapel, kelas, jamMulai) {
     if (!currentUser || currentUser.role !== 'guru') return;
 
-    let wrap = document.getElementById('guru-class-change-toast');
-    if (!wrap) {
-        wrap = document.createElement('div');
-        wrap.id = 'guru-class-change-toast';
-        wrap.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:120px;z-index:120;background:rgba(0,0,0,0.75);border:1px solid rgba(255,255,255,0.12);color:white;padding:12px 16px;border-radius:14px;font-weight:800;font-size:14px;text-align:center;max-width:92vw;display:none;';
-        document.body.appendChild(wrap);
+    const overlay = document.getElementById('class-change-overlay');
+    if (!overlay) return;
+
+    const mapelEl = document.getElementById('cc-mapel');
+    const detailEl = document.getElementById('cc-detail');
+    const countdownEl = document.getElementById('cc-countdown');
+
+    if (mapelEl) mapelEl.textContent = mapel || 'Mapel';
+    if (detailEl) {
+        let detail = jamMulai ? 'Jam ' + jamMulai.substring(0, 5) : '';
+        if (kelas) detail += (detail ? ' \u00B7 ' : '') + kelas;
+        detailEl.textContent = detail || 'Kelas berikutnya dimulai';
     }
 
-    wrap.textContent = message;
-    wrap.style.display = 'block';
+    // Reset countdown
+    if (countdownEl) countdownEl.textContent = String(CC_DISMISS_SECONDS);
 
-    clearTimeout(window.__guruClassChangeToastHideTimer);
-    window.__guruClassChangeToastHideTimer = setTimeout(() => { wrap.style.display = 'none'; }, 5000);
+    // Hapus hidden
+    overlay.classList.remove('hidden');
+
+    // Mainkan suara notifikasi
+    playClassChangeSound();
+
+    // Getar HP
+    vibrateDevice();
+
+    // Timer countdown
+    let remaining = CC_DISMISS_SECONDS;
+    if (ccCountdownTimer) clearInterval(ccCountdownTimer);
+    ccCountdownTimer = setInterval(() => {
+        remaining--;
+        if (countdownEl) countdownEl.textContent = String(Math.max(remaining, 0));
+        if (remaining <= 0) {
+            clearInterval(ccCountdownTimer);
+            ccCountdownTimer = null;
+        }
+    }, 1000);
+
+    // Auto dismiss setelah 8 detik
+    if (ccAutoDismissTimer) clearTimeout(ccAutoDismissTimer);
+    ccAutoDismissTimer = setTimeout(() => {
+        hideClassChangeNotify();
+    }, CC_DISMISS_SECONDS * 1000);
 }
+
+// Event listener tombol tutup notifikasi
+document.addEventListener('DOMContentLoaded', () => {
+    const dismissBtn = document.getElementById('cc-dismiss');
+    if (dismissBtn) {
+        dismissBtn.addEventListener('click', hideClassChangeNotify);
+    }
+});
 
 function tickRundownClassNotify() {
     if (!currentUser || currentUser.role !== 'guru') return;
@@ -715,15 +823,15 @@ function tickRundownClassNotify() {
     if (key === lastRundownClassKey) return;
     lastRundownClassKey = key;
 
-    const kelasStr = nextKelas ? ' (' + nextKelas + ')' : '';
-    showClassChangeNotify('Waktunya masuk kelas berikutnya: ' + nextMapel + kelasStr);
+    showClassChangeNotify(nextMapel, nextKelas, nextJam);
 }
 
 function startRundownClassNotify() {
     stopRundownClassNotify();
     lastRundownClassKey = '';
     tickRundownClassNotify();
-    rundownClassNotifyTimer = setInterval(tickRundownClassNotify, 30000);
+    // Interval lebih cepat: 10 detik agar lebih responsif
+    rundownClassNotifyTimer = setInterval(tickRundownClassNotify, 10000);
 }
 
 // RUNDOWN JADWAL (PDF)
