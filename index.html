@@ -174,19 +174,19 @@
                 <div class="modal-body" style="padding: 16px 20px 20px;">
                     <div style="display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom: 12px;">
                         <div style="font-size:13px; color: var(--text-secondary);">
-                            Menampilkan dokumen jadwal sekolah.
+                            Menampilkan jadwal pelajaran (gambar).
                         </div>
                         <div>
                             <button class="btn btn-secondary" id="btn-rundown-zoom-out" style="padding: 10px 14px;"><i class="fa-solid fa-magnifying-minus"></i></button>
                             <button class="btn btn-secondary" id="btn-rundown-zoom-in" style="padding: 10px 14px; margin-left: 8px;"><i class="fa-solid fa-magnifying-plus"></i></button>
                         </div>
                     </div>
-                    <div style="border:1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow:hidden; background: rgba(0,0,0,0.25);">
-                        <iframe id="rundown-pdf-frame" src="jadwal_pelajaran_2026_27.pdf" style="width: 100%; height: 64vh; border: 0;" allowfullscreen></iframe>
+                    <div style="border:1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow:hidden; background: rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; min-height: 200px;">
+                        <img id="rundown-png-image" src="jadwal_pelajaran.png" alt="Jadwal Pelajaran" style="width: 100%; height: auto; object-fit: contain; display: block;" onerror="this.parentElement.innerHTML='<div style=\'padding:40px; text-align:center; color:var(--text-muted);\'><i class=\'fa-solid fa-image\' style=\'font-size:40px; margin-bottom:12px; display:block;\'></i>Gambar jadwal belum tersedia. Silakan unggah file <strong>jadwal_pelajaran.png</strong> di folder yang sama.</div>'">
                     </div>
 
                     <div style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">
-                        Jika tampilan tidak jelas, gunakan tombol zoom (+/-).
+                        Tap/klik gambar untuk melihat lebih jelas. Gunakan tombol zoom (+/-) jika perlu.
                     </div>
                 </div>
                 <div class="modal-footer">

@@ -1036,7 +1036,7 @@ function ensureAudioContext() {
     document.addEventListener(eventType, ensureAudioContext, { once: false });
 });
 
-// RUNDOWN JADWAL (PDF)
+// RUNDOWN JADWAL (PNG)
 const rundownBtn = document.getElementById("btn-open-rundown");
 const rundownModal = document.getElementById("rundown-modal");
 const rundownClose1 = document.getElementById("btn-close-rundown-modal");
@@ -1046,6 +1046,9 @@ if (rundownBtn && rundownModal) {
     rundownBtn.addEventListener("click", () => {
         rundownModal.classList.remove("hidden");
         rundownModal.setAttribute("aria-hidden", "false");
+        // Reset zoom saat membuka modal
+        rundownPngZoomLevel = 1.0;
+        applyRundownPngZoom();
     });
 }
 
@@ -1056,15 +1059,43 @@ function showRundownModal() {
     m.setAttribute("aria-hidden", "false");
 }
 
+// Zoom controls untuk gambar rundown PNG
+let rundownPngZoomLevel = 1.0;
+const RUNDOWN_PNG_ZOOM_STEP = 0.15;
+const RUNDOWN_PNG_MIN_ZOOM = 0.3;
+const RUNDOWN_PNG_MAX_ZOOM = 3.0;
+
+function applyRundownPngZoom() {
+    const img = document.getElementById('rundown-png-image');
+    if (img) {
+        img.style.transform = `scale(${rundownPngZoomLevel})`;
+        img.style.transformOrigin = 'center center';
+    }
+}
+
+document.getElementById('btn-rundown-zoom-in')?.addEventListener('click', () => {
+    if (rundownPngZoomLevel < RUNDOWN_PNG_MAX_ZOOM) {
+        rundownPngZoomLevel = Math.min(rundownPngZoomLevel + RUNDOWN_PNG_ZOOM_STEP, RUNDOWN_PNG_MAX_ZOOM);
+        applyRundownPngZoom();
+    }
+});
+
+document.getElementById('btn-rundown-zoom-out')?.addEventListener('click', () => {
+    if (rundownPngZoomLevel > RUNDOWN_PNG_MIN_ZOOM) {
+        rundownPngZoomLevel = Math.max(rundownPngZoomLevel - RUNDOWN_PNG_ZOOM_STEP, RUNDOWN_PNG_MIN_ZOOM);
+        applyRundownPngZoom();
+    }
+});
+
+// Reset zoom saat modal ditutup
 const closeRundown = () => {
+    rundownPngZoomLevel = 1.0;
+    applyRundownPngZoom();
     if (rundownModal) {
         rundownModal.classList.add("hidden");
         rundownModal.setAttribute("aria-hidden", "true");
     }
 };
-
-rundownClose1?.addEventListener("click", closeRundown);
-rundownClose2?.addEventListener("click", closeRundown);
 
 // IZIN (GURU)
 const izinOverlay = document.getElementById("izin-overlay");

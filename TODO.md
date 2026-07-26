@@ -32,6 +32,12 @@ Notifikasi pergantian jam pelajaran tidak muncul saat Chrome di-minimize / backg
 - [x] Daftarkan service worker di `index.html`
 - [x] Service worker menangani event `push` dan `notificationclick`
 
-### ✅ Step 6: Testing & Validasi
+### ✅ Step 6: [BARU] Ganti Rundown Jadwal dari PDF ke PNG
+- [x] Ubah `iframe` (PDF) menjadi `<img>` (PNG) di `index.html`
+- [x] Ganti file sumber dari `jadwal_pelajaran_2026_27.pdf` ke `jadwal_pelajaran.png`
+- [x] Tambahkan fallback error handler jika gambar tidak ditemukan
+- [x] Tambahkan zoom in/out functionality via JS
+
+### ✅ Step 7: Testing & Validasi
 - [x] Verifikasi semua perubahan sudah terintegrasi dengan benar
 
