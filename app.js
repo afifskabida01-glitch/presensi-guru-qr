@@ -2001,6 +2001,8 @@ function setupRundownTouchHandlers() {
     // --- Touch support (mobile touchscreen) ---
     let touchStartTime = 0;
     let touchMoved = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
 
     wrapper.addEventListener('touchstart', (e) => {
         const touches = e.touches;
@@ -2008,14 +2010,18 @@ function setupRundownTouchHandlers() {
         touchStartTime = Date.now();
 
         if (touches.length === 1 && rundownZoomLevel > 100) {
-            // Single finger drag
+            // Single finger drag: PREVENT DEFAULT agar browser tidak scroll halaman
+            e.preventDefault();
             rundownTouchState.isDragging = true;
+            touchStartX = touches[0].clientX;
+            touchStartY = touches[0].clientY;
             rundownTouchState.startX = touches[0].clientX;
             rundownTouchState.startY = touches[0].clientY;
             rundownTouchState.panStartX = rundownPanX;
             rundownTouchState.panStartY = rundownPanY;
         } else if (touches.length === 2) {
-            // Two finger pinch
+            // Two finger pinch: selalu prevent default
+            e.preventDefault();
             rundownTouchState.isDragging = false;
             const dx = touches[0].clientX - touches[1].clientX;
             const dy = touches[0].clientY - touches[1].clientY;
@@ -2029,16 +2035,17 @@ function setupRundownTouchHandlers() {
         touchMoved = true;
 
         if (touches.length === 1 && rundownTouchState.isDragging) {
-            // Pan dengan satu jari
+            // Pan dengan satu jari: selalu prevent default
+            e.preventDefault();
             const dx = touches[0].clientX - rundownTouchState.startX;
             const dy = touches[0].clientY - rundownTouchState.startY;
             rundownPanX = rundownTouchState.panStartX + dx;
             rundownPanY = rundownTouchState.panStartY + dy;
             clampPan();
             updateRundownZoom();
-            e.preventDefault();
         } else if (touches.length === 2) {
-            // Pinch zoom dengan dua jari
+            // Pinch zoom dengan dua jari: selalu prevent default
+            e.preventDefault();
             const dx = touches[0].clientX - touches[1].clientX;
             const dy = touches[0].clientY - touches[1].clientY;
             const dist = Math.sqrt(dx * dx + dy * dy);
@@ -2050,21 +2057,20 @@ function setupRundownTouchHandlers() {
                 clampPan();
                 updateRundownZoom();
             }
-            e.preventDefault();
         }
     }, { passive: false });
 
     wrapper.addEventListener('touchend', (e) => {
-        // Reset pinch state
+        // Reset pinch & drag state
         rundownTouchState.lastPinchDist = 0;
         rundownTouchState.isDragging = false;
         
         // If it was a quick tap (not drag), toggle zoom
         if (!touchMoved && Date.now() - touchStartTime < 300) {
+            e.preventDefault(); // Mencegah event click terpicu
             if (rundownZoomLevel <= 100) {
-                // Zoom in to 200%
+                // Zoom in to 200% centered on tap point
                 rundownZoomLevel = 200;
-                // Center on tap point
                 if (e.changedTouches.length > 0) {
                     const wrapperRect = wrapper.getBoundingClientRect();
                     const touchX = e.changedTouches[0].clientX - wrapperRect.left;
