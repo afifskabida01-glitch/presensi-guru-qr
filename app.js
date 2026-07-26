@@ -1905,9 +1905,11 @@ document.getElementById("btn-export-csv")?.addEventListener("click", exportRepor
 document.getElementById("btn-export-pdf")?.addEventListener("click", exportReportPdf);
 
 // ==========================================================================
-// RUNDOWN ZOOM CONTROLS (Zoom in/out gambar jadwal)
+// RUNDOWN ZOOM CONTROLS (Zoom in/out + Touch Pan & Pinch)
 // ==========================================================================
 let rundownZoomLevel = 100;
+let rundownPanX = 0;
+let rundownPanY = 0;
 const RUNDOWN_ZOOM_MIN = 30;
 const RUNDOWN_ZOOM_MAX = 300;
 const RUNDOWN_ZOOM_STEP = 15;
@@ -1916,12 +1918,173 @@ function updateRundownZoom() {
     const img = document.getElementById('rundown-png-image');
     const display = document.getElementById('rundown-zoom-display');
     if (img) {
-        img.style.transform = `scale(${rundownZoomLevel / 100})`;
-        img.style.transformOrigin = 'center center';
+        img.style.transform = `translate(${rundownPanX}px, ${rundownPanY}px) scale(${rundownZoomLevel / 100})`;
+        img.style.transformOrigin = '0 0';
     }
     if (display) {
         display.textContent = rundownZoomLevel + '%';
     }
+}
+
+function clampPan() {
+    const img = document.getElementById('rundown-png-image');
+    const wrapper = document.getElementById('rundown-image-wrapper');
+    if (!img || !wrapper) return;
+    
+    const imgW = img.naturalWidth || img.width || 400;
+    const imgH = img.naturalHeight || img.height || 200;
+    const scale = rundownZoomLevel / 100;
+    const scaledW = imgW * scale;
+    const scaledH = imgH * scale;
+    const wrapperW = wrapper.clientWidth;
+    const wrapperH = wrapper.clientHeight;
+    
+    // Max pan: allow overscroll 50px for smooth edge feel
+    const maxX = Math.max(0, (scaledW - wrapperW) / 2) + 50;
+    const minX = -maxX;
+    const maxY = Math.max(0, (scaledH - wrapperH) / 2) + 50;
+    const minY = -maxY;
+    
+    rundownPanX = Math.max(minX, Math.min(maxX, rundownPanX));
+    rundownPanY = Math.max(minY, Math.min(maxY, rundownPanY));
+    
+    // If zoomed out to fit, always center
+    if (scaledW <= wrapperW) rundownPanX = 0;
+    if (scaledH <= wrapperH) rundownPanY = 0;
+}
+
+// Touch pan & pinch state
+let rundownTouchState = {
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    panStartX: 0,
+    panStartY: 0,
+    lastPinchDist: 0,
+    lastPinchZoom: 100
+};
+
+function setupRundownTouchHandlers() {
+    const wrapper = document.getElementById('rundown-image-wrapper');
+    if (!wrapper) return;
+
+    // --- Mouse drag support (desktop) ---
+    wrapper.addEventListener('mousedown', (e) => {
+        if (rundownZoomLevel <= 100) return; // only drag when zoomed in
+        rundownTouchState.isDragging = true;
+        rundownTouchState.startX = e.clientX;
+        rundownTouchState.startY = e.clientY;
+        rundownTouchState.panStartX = rundownPanX;
+        rundownTouchState.panStartY = rundownPanY;
+        wrapper.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!rundownTouchState.isDragging) return;
+        const dx = e.clientX - rundownTouchState.startX;
+        const dy = e.clientY - rundownTouchState.startY;
+        rundownPanX = rundownTouchState.panStartX + dx;
+        rundownPanY = rundownTouchState.panStartY + dy;
+        clampPan();
+        updateRundownZoom();
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (rundownTouchState.isDragging) {
+            rundownTouchState.isDragging = false;
+            const wrapper = document.getElementById('rundown-image-wrapper');
+            if (wrapper) wrapper.style.cursor = rundownZoomLevel > 100 ? 'grab' : 'default';
+        }
+    });
+
+    // --- Touch support (mobile touchscreen) ---
+    let touchStartTime = 0;
+    let touchMoved = false;
+
+    wrapper.addEventListener('touchstart', (e) => {
+        const touches = e.touches;
+        touchMoved = false;
+        touchStartTime = Date.now();
+
+        if (touches.length === 1 && rundownZoomLevel > 100) {
+            // Single finger drag
+            rundownTouchState.isDragging = true;
+            rundownTouchState.startX = touches[0].clientX;
+            rundownTouchState.startY = touches[0].clientY;
+            rundownTouchState.panStartX = rundownPanX;
+            rundownTouchState.panStartY = rundownPanY;
+        } else if (touches.length === 2) {
+            // Two finger pinch
+            rundownTouchState.isDragging = false;
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            rundownTouchState.lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+            rundownTouchState.lastPinchZoom = rundownZoomLevel;
+        }
+    }, { passive: false });
+
+    wrapper.addEventListener('touchmove', (e) => {
+        const touches = e.touches;
+        touchMoved = true;
+
+        if (touches.length === 1 && rundownTouchState.isDragging) {
+            // Pan dengan satu jari
+            const dx = touches[0].clientX - rundownTouchState.startX;
+            const dy = touches[0].clientY - rundownTouchState.startY;
+            rundownPanX = rundownTouchState.panStartX + dx;
+            rundownPanY = rundownTouchState.panStartY + dy;
+            clampPan();
+            updateRundownZoom();
+            e.preventDefault();
+        } else if (touches.length === 2) {
+            // Pinch zoom dengan dua jari
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (rundownTouchState.lastPinchDist > 0) {
+                const scaleFactor = dist / rundownTouchState.lastPinchDist;
+                rundownZoomLevel = Math.round(rundownTouchState.lastPinchZoom * scaleFactor);
+                rundownZoomLevel = Math.max(RUNDOWN_ZOOM_MIN, Math.min(RUNDOWN_ZOOM_MAX, rundownZoomLevel));
+                clampPan();
+                updateRundownZoom();
+            }
+            e.preventDefault();
+        }
+    }, { passive: false });
+
+    wrapper.addEventListener('touchend', (e) => {
+        // Reset pinch state
+        rundownTouchState.lastPinchDist = 0;
+        rundownTouchState.isDragging = false;
+        
+        // If it was a quick tap (not drag), toggle zoom
+        if (!touchMoved && Date.now() - touchStartTime < 300) {
+            if (rundownZoomLevel <= 100) {
+                // Zoom in to 200%
+                rundownZoomLevel = 200;
+                // Center on tap point
+                if (e.changedTouches.length > 0) {
+                    const wrapperRect = wrapper.getBoundingClientRect();
+                    const touchX = e.changedTouches[0].clientX - wrapperRect.left;
+                    const touchY = e.changedTouches[0].clientY - wrapperRect.top;
+                    const scale = rundownZoomLevel / 100;
+                    const wrapperW = wrapperRect.width;
+                    const wrapperH = wrapperRect.height;
+                    rundownPanX = -(touchX * scale - wrapperW / 2);
+                    rundownPanY = -(touchY * scale - wrapperH / 2);
+                }
+            } else {
+                // Zoom out to fit
+                rundownZoomLevel = 100;
+                rundownPanX = 0;
+                rundownPanY = 0;
+            }
+            clampPan();
+            updateRundownZoom();
+        }
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1931,6 +2094,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (zoomInBtn) {
         zoomInBtn.addEventListener('click', () => {
             rundownZoomLevel = Math.min(RUNDOWN_ZOOM_MAX, rundownZoomLevel + RUNDOWN_ZOOM_STEP);
+            clampPan();
             updateRundownZoom();
         });
     }
@@ -1938,9 +2102,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (zoomOutBtn) {
         zoomOutBtn.addEventListener('click', () => {
             rundownZoomLevel = Math.max(RUNDOWN_ZOOM_MIN, rundownZoomLevel - RUNDOWN_ZOOM_STEP);
+            clampPan();
             updateRundownZoom();
         });
     }
+    
+    // Setup touch drag & pinch handlers
+    setupRundownTouchHandlers();
     
     // Reset zoom when modal opens
     const rundownModal = document.getElementById('rundown-modal');
@@ -1948,6 +2116,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const observer = new MutationObserver(() => {
             if (!rundownModal.classList.contains('hidden')) {
                 rundownZoomLevel = 100;
+                rundownPanX = 0;
+                rundownPanY = 0;
                 updateRundownZoom();
             }
         });
