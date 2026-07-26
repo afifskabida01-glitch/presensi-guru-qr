@@ -1309,13 +1309,15 @@ function renderTeachersTable() {
     const filtered = state.teachers.filter(t => (t.name || "").toLowerCase().includes(search));
     
     if(filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:16px; color:var(--text-muted);">Tidak ada data guru ditemukan.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:16px; color:var(--text-muted);">Tidak ada data guru ditemukan.</td></tr>';
         return;
     }
     
     filtered.forEach(t => {
         const avatarStr = (t.name || "GU").substring(0, 2).toUpperCase();
-        tbody.innerHTML += '<tr><td><div class="feed-avatar">' + avatarStr + '</div></td><td><strong>' + (t.name || "-") + '</strong></td><td>' + (t.nip || "-") + '</td><td>' + (t.picketDay || "-") + '</td><td>' + (t.picketCheckIn || '-') + '</td><td><div class="action-buttons"><button class="btn-icon" title="Jadwal" onclick="openJadwalForTeacher(\'' + t.id + '\')"><i class="fa-solid fa-calendar-week"></i></button><button class="btn-icon" title="Edit" onclick="editTeacher(\'' + t.id + '\')"><i class="fa-solid fa-pen"></i></button><button class="btn-icon" title="Hapus" onclick="deleteTeacher(\'' + t.id + '\')"><i class="fa-solid fa-trash"></i></button></div></td></tr>';
+        const jabatan = t.jabatan || '-';
+        const nohp = t.noHp || '-';
+        tbody.innerHTML += '<tr><td><div class="feed-avatar">' + avatarStr + '</div></td><td><strong>' + (t.name || "-") + '</strong></td><td>' + jabatan + '</td><td>' + nohp + '</td><td>' + (t.nip || "-") + '</td><td>' + (t.picketDay || "-") + '</td><td>' + (t.picketCheckIn || '-') + '</td><td><div class="action-buttons"><button class="btn-icon" title="Jadwal" onclick="openJadwalForTeacher(\'' + t.id + '\')"><i class="fa-solid fa-calendar-week"></i></button><button class="btn-icon" title="Edit" onclick="editTeacher(\'' + t.id + '\')"><i class="fa-solid fa-pen"></i></button><button class="btn-icon" title="Hapus" onclick="deleteTeacher(\'' + t.id + '\')"><i class="fa-solid fa-trash"></i></button></div></td></tr>';
     });
 }
 document.getElementById("search-teacher")?.addEventListener("input", renderTeachersTable);
@@ -1330,10 +1332,14 @@ document.getElementById("btn-close-teacher-modal").addEventListener("click", () 
 document.getElementById("form-teacher").addEventListener("submit", (e) => {
     e.preventDefault();
     const id = document.getElementById("teacher-id").value || "T" + Date.now();
+    const jabatanEl = document.getElementById("teacher-jabatan");
+    const nohpEl = document.getElementById("teacher-nohp");
     const newData = {
         id,
         name: document.getElementById("teacher-name").value,
         nip: document.getElementById("teacher-nip").value,
+        jabatan: jabatanEl ? jabatanEl.value : 'Guru Mapel',
+        noHp: nohpEl ? nohpEl.value.trim() : '',
         picketDay: document.getElementById("teacher-picket").value,
         picketCheckIn: document.getElementById("teacher-checkin").value
     };
@@ -1346,6 +1352,10 @@ window.editTeacher = function(id) {
     document.getElementById("teacher-id").value = t.id;
     document.getElementById("teacher-name").value = t.name;
     document.getElementById("teacher-nip").value = t.nip;
+    const jabatanEl = document.getElementById("teacher-jabatan");
+    const nohpEl = document.getElementById("teacher-nohp");
+    if (jabatanEl) jabatanEl.value = t.jabatan || 'Guru Mapel';
+    if (nohpEl) nohpEl.value = t.noHp || '';
     document.getElementById("teacher-picket").value = t.picketDay;
     document.getElementById("teacher-checkin").value = t.picketCheckIn || "07:00";
     teacherModal.classList.remove("hidden");

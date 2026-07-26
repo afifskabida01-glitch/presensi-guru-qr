@@ -381,7 +381,7 @@
                     </div>
                     <div class="table-container glass-card">
                         <table class="data-table">
-                            <thead><tr><th>Inisial</th><th>Nama</th><th>NIP</th><th>Hari Piket</th><th>Jam Piket</th><th class="text-right">Aksi</th></tr></thead>
+                            <thead><tr><th>Inisial</th><th>Nama</th><th>Jabatan</th><th>No. HP</th><th>NIP</th><th>Hari Piket</th><th>Jam Piket</th><th class="text-right">Aksi</th></tr></thead>
                             <tbody id="teachers-list-body"></tbody>
                         </table>
                     </div>
@@ -507,7 +507,24 @@
                 <div class="modal-body">
                     <div class="form-group"><label>Nama Lengkap</label><input type="text" id="teacher-name" required></div>
                     <div class="form-group"><label>NIP</label><input type="text" id="teacher-nip" required></div>
-                        <div class="form-row">
+                    <div class="form-group"><label>Jabatan / Rule</label>
+                        <select id="teacher-jabatan" style="width:100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass-light); color: var(--text-main); padding: 10px 16px; border-radius: var(--radius-sm); font-family: inherit;">
+                            <option value="Guru Mapel">Guru Mapel</option>
+                            <option value="Kepala Sekolah">Kepala Sekolah</option>
+                            <option value="Waka Kurikulum">Waka Kurikulum</option>
+                            <option value="Waka Kesiswaan">Waka Kesiswaan</option>
+                            <option value="Waka Sarana">Waka Sarana</option>
+                            <option value="Waka Humas">Waka Humas</option>
+                            <option value="BK / Bimbingan Konseling">BK / Bimbingan Konseling</option>
+                            <option value="Tata Usaha">Tata Usaha</option>
+                            <option value="Guru Piket">Guru Piket</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>No. HP (WhatsApp)</label>
+                        <input type="text" id="teacher-nohp" placeholder="08xxxxxxxxxx" pattern="08[0-9]{8,}" style="width:100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass-light); color: var(--text-main); padding: 10px 16px; border-radius: var(--radius-sm); font-family: inherit;">
+                        <small style="color: var(--text-muted); font-size: 11px;">Gunakan format 08xxx (contoh: 08123456789)</small>
+                    </div>
+                    <div class="form-row">
                         <div class="form-group"><label>Hari Piket</label><select id="teacher-picket"><option value="Tidak Ada">Tidak Ada</option><option value="Minggu">Minggu</option><option value="Senin">Senin</option><option value="Selasa">Selasa</option><option value="Rabu">Rabu</option><option value="Kamis">Kamis</option><option value="Jumat">Jumat</option><option value="Sabtu">Sabtu</option></select></div>
                         <div class="form-group"><label>Jam Piket</label><input type="time" id="teacher-checkin" value="07:00"></div>
                     </div>
