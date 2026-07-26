@@ -211,6 +211,34 @@ body {
 .greeting { font-size: 12px; color: var(--text-secondary); margin-bottom: 2px;}
 #guru-name-display { font-size: 18px; font-weight: 700; }
 
+/* Guru Header Right - Real Time Clock */
+.guru-header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.guru-datetime {
+    text-align: right;
+    background: rgba(255,255,255,0.04);
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+    min-width: 100px;
+}
+.guru-time {
+    font-family: var(--font-heading);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--color-primary);
+    line-height: 1.2;
+}
+.guru-date {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
 .guru-scroll-content {
     flex: 1;
     overflow-y: auto;

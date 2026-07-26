@@ -309,6 +309,30 @@ document.getElementById("btn-logout-guru").addEventListener('click', () => {
 // VIEW: GURU (MOBILE APP)
 // ==========================================================================
 
+// Timer ID untuk jam real-time guru
+let guruClockInterval = null;
+
+function updateGuruClock() {
+    const timeEl = document.getElementById('guru-live-time');
+    const dateEl = document.getElementById('guru-live-date');
+    if (!timeEl && !dateEl) return;
+    
+    const now = new Date();
+    if (timeEl) {
+        timeEl.textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    if (dateEl) {
+        dateEl.textContent = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    }
+}
+
+function stopGuruClock() {
+    if (guruClockInterval) {
+        clearInterval(guruClockInterval);
+        guruClockInterval = null;
+    }
+}
+
 function initGuruView() {
     if(!currentUser || currentUser.role !== 'guru') return;
     
@@ -340,6 +364,11 @@ function initGuruView() {
     
     updateGuruStatusAndBtn();
     renderGuruHistory();
+    
+    // Mulai jam real-time guru
+    stopGuruClock();
+    updateGuruClock();
+    guruClockInterval = setInterval(updateGuruClock, 1000);
 }
 
 function updateGuruStatusAndBtn() {
@@ -624,27 +653,87 @@ let lastRundownClassKey = "";
 
 // Audio context untuk suara notifikasi
 let ccAudioCtx = null;
+let isCCAudioPlaying = false;
+
 function playClassChangeSound() {
     try {
         if (!ccAudioCtx) {
             ccAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
-        // Buat 3 beep pendek seperti bel
-        const now = ccAudioCtx.currentTime;
-        for (let i = 0; i < 3; i++) {
-            const osc = ccAudioCtx.createOscillator();
-            const gain = ccAudioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(ccAudioCtx.destination);
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, now + i * 0.2); // A5 = 880Hz
-            gain.gain.setValueAtTime(0.3, now + i * 0.2);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.2 + 0.15);
-            osc.start(now + i * 0.2);
-            osc.stop(now + i * 0.2 + 0.15);
+        if (ccAudioCtx.state === 'suspended') {
+            ccAudioCtx.resume();
         }
+
+        isCCAudioPlaying = true;
+        const now = ccAudioCtx.currentTime;
+        
+        // Alarm seperti bel sekolah: 6 beep dengan nada naik-turun
+        const beepCount = 6;
+        const beepDuration = 0.25;
+        const gapDuration = 0.15;
+        const totalDuration = beepCount * (beepDuration + gapDuration);
+        const baseFreq = 660; // E5
+        
+        for (let i = 0; i < beepCount; i++) {
+            const startTime = now + i * (beepDuration + gapDuration);
+            
+            // Nada bergantian: tinggi-rendah seperti bel sekolah
+            const freq = (i % 2 === 0) ? baseFreq : baseFreq * 1.5; // E5 alternating with B5 (1.5x)
+            const vol = 0.45 - (i * 0.03); // sedikit fade out
+            
+            // Oscillator 1 - sine (nada utama)
+            const osc1 = ccAudioCtx.createOscillator();
+            const gain1 = ccAudioCtx.createGain();
+            osc1.connect(gain1);
+            gain1.connect(ccAudioCtx.destination);
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(freq, startTime);
+            gain1.gain.setValueAtTime(vol, startTime);
+            gain1.gain.exponentialRampToValueAtTime(0.001, startTime + beepDuration);
+            osc1.start(startTime);
+            osc1.stop(startTime + beepDuration);
+            
+            // Oscillator 2 - triangle (harmoni untuk suara lebih kaya)
+            if (i % 2 === 0) {
+                const osc2 = ccAudioCtx.createOscillator();
+                const gain2 = ccAudioCtx.createGain();
+                osc2.connect(gain2);
+                gain2.connect(ccAudioCtx.destination);
+                osc2.type = 'triangle';
+                osc2.frequency.setValueAtTime(freq * 2, startTime); // satu oktaf di atas
+                gain2.gain.setValueAtTime(vol * 0.2, startTime);
+                gain2.gain.exponentialRampToValueAtTime(0.001, startTime + beepDuration * 0.8);
+                osc2.start(startTime);
+                osc2.stop(startTime + beepDuration * 0.8);
+            }
+        }
+        
+        // Setelah selesai, reset flag
+        setTimeout(() => {
+            isCCAudioPlaying = false;
+        }, totalDuration * 1000 + 200);
+        
     } catch (e) {
         console.warn('Audio notifikasi tidak tersedia:', e);
+        isCCAudioPlaying = false;
+    }
+}
+
+// Fallback alarm menggunakan Audio HTML element sebagai cadangan
+function playAlarmFallback() {
+    try {
+        // Coba buat audio context dulu
+        if (ccAudioCtx) {
+            playClassChangeSound();
+            return;
+        }
+        
+        // Fallback: buat oscillator sederhana
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        ccAudioCtx = ctx;
+        playClassChangeSound();
+    } catch (e) {
+        console.warn('Semua metode audio gagal:', e);
     }
 }
 
@@ -752,11 +841,14 @@ function showClassChangeNotify(mapel, kelas, jamMulai) {
     // Hapus hidden
     overlay.classList.remove('hidden');
 
-    // Mainkan suara notifikasi
+    // Mainkan suara notifikasi (alarm)
     playClassChangeSound();
 
     // Getar HP
     vibrateDevice();
+
+    // Kirim notifikasi desktop/OS jika diizinkan
+    sendDesktopNotification(mapel, kelas, jamMulai);
 
     // Timer countdown
     let remaining = CC_DISMISS_SECONDS;
@@ -775,6 +867,58 @@ function showClassChangeNotify(mapel, kelas, jamMulai) {
     ccAutoDismissTimer = setTimeout(() => {
         hideClassChangeNotify();
     }, CC_DISMISS_SECONDS * 1000);
+}
+
+// Fungsi Notifikasi Desktop / OS
+function sendDesktopNotification(mapel, kelas, jamMulai) {
+    try {
+        // Cek apakah Notification API tersedia
+        if (!('Notification' in window)) return;
+        
+        // Minta izin jika belum
+        if (Notification.permission === 'default') {
+            Notification.requestPermission();
+            return;
+        }
+        
+        // Jika diizinkan, kirim notifikasi
+        if (Notification.permission === 'granted') {
+            const jamStr = jamMulai ? jamMulai.substring(0, 5) : '';
+            const bodyText = kelas 
+                ? `Kelas ${kelas} · Jam ${jamStr} — Saatnya mengajar! 🏃‍♂️💨`
+                : `Jam ${jamStr} — Saatnya mengajar! 🏃‍♂️💨`;
+            
+            const notif = new Notification('🔔 Waktunya Masuk Kelas!', {
+                body: `${mapel}\n${bodyText}`,
+                icon: 'logo.png',
+                tag: 'class-change-' + Date.now(),
+                requireInteraction: true,
+                vibrate: [200, 100, 200, 100, 200]
+            });
+            
+            // Auto close notifikasi setelah 10 detik
+            setTimeout(() => notif.close(), 10000);
+            
+            // Jika notifikasi diklik, fokus ke halaman
+            notif.onclick = function() {
+                window.focus();
+                this.close();
+            };
+        }
+    } catch (e) {
+        console.warn('Notifikasi desktop tidak tersedia:', e);
+    }
+}
+
+// Fungsi untuk meminta izin notifikasi di awal
+function requestNotificationPermission() {
+    try {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    } catch (e) {
+        // ignore
+    }
 }
 
 // Event listener tombol tutup notifikasi
@@ -880,12 +1024,14 @@ document.getElementById("btn-submit-izin").addEventListener("click", () => {
     
     const teacher = currentUser.data;
     const logId = "L" + Date.now();
+    const todayStr = getTodayDateStr();
+    const nowTime = new Date().toLocaleTimeString('en-GB');
     const newRecord = {
         id: logId,
         teacherId: teacher.id,
         teacherName: teacher.name,
-        date: getTodayDateStr(),
-        timeIn: new Date().toLocaleTimeString('en-GB'),
+        date: todayStr,
+        timeIn: nowTime,
         timeOut: "",
         statusIn: "-",
         statusOut: "-",
@@ -897,9 +1043,105 @@ document.getElementById("btn-submit-izin").addEventListener("click", () => {
     
     saveData("attendance", logId, newRecord).then(() => {
         izinOverlay.classList.add("hidden");
+        
+        // Kirim notifikasi WhatsApp
+        sendIzinWhatsAppNotification(teacher.name, type, ket, todayStr);
+        
         alert('Laporan ' + type + ' berhasil dikirim ke Admin.');
         initGuruView();
     });
+});
+
+// ==========================================================================
+// NOTIFIKASI WHATSAPP IZIN/SAKIT
+// ==========================================================================
+
+// Konfigurasi nomor WhatsApp untuk notifikasi
+let notifConfig = {
+    headmasterPhone: '6281234567890',  // Default, bisa diubah di admin panel
+    picketPhone: '6281234567890'        // Default, bisa diubah di admin panel
+};
+
+// Load konfigurasi dari localStorage
+function loadNotifConfig() {
+    try {
+        const saved = localStorage.getItem('qr_presensi_notif_config');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.headmasterPhone) notifConfig.headmasterPhone = parsed.headmasterPhone;
+            if (parsed.picketPhone) notifConfig.picketPhone = parsed.picketPhone;
+        }
+        
+        // Update field di admin panel jika ada
+        const hmField = document.getElementById('notif-headmaster-phone');
+        const pkField = document.getElementById('notif-picket-phone');
+        if (hmField) hmField.value = notifConfig.headmasterPhone;
+        if (pkField) pkField.value = notifConfig.picketPhone;
+    } catch (e) {
+        console.warn('Gagal load konfigurasi notifikasi:', e);
+    }
+}
+
+// Simpan konfigurasi notifikasi
+function saveNotifConfig() {
+    const hmField = document.getElementById('notif-headmaster-phone');
+    const pkField = document.getElementById('notif-picket-phone');
+    
+    if (hmField) notifConfig.headmasterPhone = hmField.value.trim();
+    if (pkField) notifConfig.picketPhone = pkField.value.trim();
+    
+    // Validasi format nomor (harus angka)
+    if (!/^\d+$/.test(notifConfig.headmasterPhone)) {
+        alert('Nomor WhatsApp Kepala Sekolah tidak valid! Harus berupa angka (format: 628xxx)');
+        return;
+    }
+    if (!/^\d+$/.test(notifConfig.picketPhone)) {
+        alert('Nomor WhatsApp Guru Piket tidak valid! Harus berupa angka (format: 628xxx)');
+        return;
+    }
+    
+    localStorage.setItem('qr_presensi_notif_config', JSON.stringify(notifConfig));
+    alert('✅ Konfigurasi notifikasi WhatsApp berhasil disimpan!');
+}
+
+window.saveNotifConfig = saveNotifConfig;
+
+// Kirim notifikasi izin/sakit via WhatsApp
+function sendIzinWhatsAppNotification(teacherName, type, keterangan, dateStr) {
+    try {
+        const jenisLabel = type === 'sakit' ? 'SAKIT 🤒' : 'IZIN 📋';
+        const todayFormatted = dateStr || getTodayDateStr();
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        const dayName = getDayName(now);
+        
+        // Format pesan WhatsApp
+        const message = `🔔 *NOTIFIKASI KETIDAKHADIRAN GURU*\n━━━━━━━━━━━━━━━━━━\n\n📋 *Jenis:* ${jenisLabel}\n👤 *Guru:* ${teacherName}\n📅 *Tanggal:* ${dayName}, ${todayFormatted}\n⏰ *Waktu Lapor:* ${timeStr}\n📝 *Alasan:* ${keterangan}\n\n━━━━━━━━━━━━━━━━━━\n_Pesan ini dikirim otomatis oleh sistem presensi E_PGSkabida_`;
+        
+        // Kirim ke Kepala Sekolah
+        if (notifConfig.headmasterPhone) {
+            const waUrl1 = `https://wa.me/${notifConfig.headmasterPhone}?text=${encodeURIComponent(message)}`;
+            window.open(waUrl1, '_blank');
+        }
+        
+        // Kirim ke Guru Piket (dengan jeda agar tidak di-block browser popup)
+        if (notifConfig.picketPhone) {
+            setTimeout(() => {
+                const waUrl2 = `https://wa.me/${notifConfig.picketPhone}?text=${encodeURIComponent(message)}`;
+                window.open(waUrl2, '_blank');
+            }, 800);
+        }
+        
+        console.log('Notifikasi WhatsApp dikirim:', { teacherName, type, keterangan });
+        
+    } catch (e) {
+        console.warn('Gagal mengirim notifikasi WhatsApp:', e);
+    }
+}
+
+// Panggil loadNotifConfig saat inisialisasi
+document.addEventListener('DOMContentLoaded', () => {
+    loadNotifConfig();
 });
 
 // ==========================================================================
@@ -1588,6 +1830,9 @@ document.getElementById("btn-export-pdf")?.addEventListener("click", exportRepor
 // ==========================================================================
 window.addEventListener("load", () => {
     initDatabase();
+    
+    // Minta izin notifikasi desktop di awal
+    requestNotificationPermission();
 
     try {
         const mql = window.matchMedia("(max-width: 768px)");
