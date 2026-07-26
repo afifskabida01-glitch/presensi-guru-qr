@@ -268,6 +268,9 @@ function renderLoginDropdown() {
 }
 
 document.getElementById("btn-login-guru").addEventListener('click', () => {
+    // Minta izin notifikasi saat interaksi pengguna (click)
+    requestNotificationPermission();
+    
     const tId = document.getElementById("login-select-guru").value;
     if (!tId) return alert("Pilih nama Anda dari daftar!");
     const tData = state.teachers.find(t => t.id === tId);
@@ -588,7 +591,11 @@ function handleQRScanResult(scannedData) {
     }, 500);
 }
 
-document.getElementById("btn-trigger-scan").addEventListener("click", startCamera);
+document.getElementById("btn-trigger-scan").addEventListener("click", () => {
+    // Minta izin notifikasi saat interaksi pengguna (tap tombol scan)
+    requestNotificationPermission();
+    startCamera();
+});
 document.getElementById("btn-close-scanner").addEventListener("click", stopCamera);
 
 function processAttendance(teacherId) {
@@ -974,9 +981,60 @@ function startRundownClassNotify() {
     stopRundownClassNotify();
     lastRundownClassKey = '';
     tickRundownClassNotify();
-    // Interval lebih cepat: 10 detik agar lebih responsif
-    rundownClassNotifyTimer = setInterval(tickRundownClassNotify, 10000);
+    // Interval 5 detik untuk deteksi lebih cepat, mengatasi Chrome throttle
+    rundownClassNotifyTimer = setInterval(tickRundownClassNotify, 5000);
 }
+
+// ======================================================================
+// PAGE VISIBILITY API - Notifikasi Tetap Muncul Saat Tab Kembali Aktif
+// ======================================================================
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        console.log('Tab aktif kembali - mengecek notifikasi yang terlewat...');
+        
+        // Resume AudioContext jika suspended
+        if (ccAudioCtx && ccAudioCtx.state === 'suspended') {
+            ccAudioCtx.resume().then(() => {
+                console.log('AudioContext berhasil di-resume');
+            }).catch(err => {
+                console.warn('Gagal resume AudioContext:', err);
+            });
+        }
+        
+        // Segera cek pergantian jam yang mungkin terlewat
+        if (currentUser && currentUser.role === 'guru') {
+            // Reset key biar notifikasi bisa muncul lagi untuk jam yg sama
+            lastRundownClassKey = '';
+            
+            // Panggil tick segera untuk mengecek notifikasi yang terlewat
+            setTimeout(() => {
+                tickRundownClassNotify();
+                
+                // Panggil sekali lagi setelah 1 detik untuk memastikan
+                setTimeout(tickRundownClassNotify, 1000);
+            }, 300);
+        }
+    }
+});
+
+// Pastikan AudioContext di-resume saat user pertama kali berinteraksi dengan halaman
+function ensureAudioContext() {
+    if (!ccAudioCtx) {
+        try {
+            ccAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+            // ignore
+        }
+    }
+    if (ccAudioCtx && ccAudioCtx.state === 'suspended') {
+        ccAudioCtx.resume().catch(() => {});
+    }
+}
+
+// Daftarkan event listener interaksi pengguna untuk resume AudioContext
+['click', 'touchstart', 'keydown'].forEach(eventType => {
+    document.addEventListener(eventType, ensureAudioContext, { once: false });
+});
 
 // RUNDOWN JADWAL (PDF)
 const rundownBtn = document.getElementById("btn-open-rundown");
@@ -1841,9 +1899,6 @@ document.getElementById("btn-export-pdf")?.addEventListener("click", exportRepor
 window.addEventListener("load", () => {
     initDatabase();
     
-    // Minta izin notifikasi desktop di awal
-    requestNotificationPermission();
-
     try {
         const mql = window.matchMedia("(max-width: 768px)");
         const onChange = () => {

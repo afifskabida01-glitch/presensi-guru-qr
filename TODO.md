@@ -1,32 +1,37 @@
-# TODO Progress
+# TODO: Perbaikan Notifikasi Pergantian Jam Pelajaran
 
-## ✅ Completed Features
+## Masalah
+Notifikasi pergantian jam pelajaran tidak muncul saat Chrome di-minimize / background karena:
+1. `setInterval` di-throttle Chrome sampai ~1 menit
+2. `AudioContext` di-suspend Chrome
+3. Izin notifikasi diminta di load, bukan di interaksi pengguna
+4. Tidak ada mekanisme catch-up saat tab kembali aktif
 
-### 1. Notifikasi Pergantian Jam Mapel (Class Change Overlay)
-- [x] Modal notifikasi dengan animasi slide-in/out
-- [x] Suara alarm bel sekolah (6x beep E5-B5)
-- [x] Getaran (vibrate) HP
-- [x] Auto-dismiss 8 detik dengan countdown
-- [x] Notifikasi Desktop/OS (Notification API)
-- [x] Fallback audio jika AudioContext gagal
-- [x] Flag `isCCAudioPlaying` untuk mencegah overlap suara
+## Steps
 
-### 2. Notifikasi WhatsApp Izin/Sakit
-- [x] Kirim notifikasi WhatsApp ke Kepala Sekolah
-- [x] Kirim notifikasi WhatsApp ke Guru Piket
-- [x] Konfigurasi nomor di panel admin
-- [x] Simpan konfigurasi di localStorage
+### ✅ Step 1: Izin Notifikasi Berbasis Interaksi
+- [x] Pindahkan `requestNotificationPermission()` dari `window.load` ke event click login guru & trigger scan
 
-### 3. ✨ Fitur Baru: Jam Real-Time Guru (2025-04-15)
-- [x] **index.html**: Tambah elemen `#guru-datetime` di header guru (jam & tanggal real-time)
-- [x] **style.css**: CSS untuk `.guru-header-right`, `.guru-datetime`, `.guru-time`, `.guru-date`
-- [x] **app.js**: 
-  - Fungsi `updateGuruClock()` — perbarui jam & tanggal setiap detik
-  - Fungsi `stopGuruClock()` — bersihkan interval
-  - Panggil di `initGuruView()` — mulai jam saat guru login
-- [x] Izin notifikasi desktop diminta di awal (`requestNotificationPermission()`)
+### ✅ Step 2: Page Visibility API + Catch-up Notifikasi
+- [x] Tambahkan event listener `visibilitychange` di `document`
+- [x] Resume AudioContext saat tab aktif kembali
+- [x] Panggil `tickRundownClassNotify()` segera saat tab aktif
+- [x] Simpan timestamp notifikasi terakhir untuk deteksi notifikasi terlewat
 
-## 🔄 In Progress
-- Menambahkan tombol "Refresh/Paksa Sync" di admin panel
-- Menambahkan indikator koneksi Firebase di header admin
+### ✅ Step 3: Hybrid Interval yang Lebih Resilien
+- [x] Kurangi interval dari 10s jadi 5s
+- [x] Tambahkan pengecekan `document.hidden` di `tickRundownClassNotify()`
+- [x] Tambahkan mekanisme "catch-up" untuk notifikasi yang terlewat
+
+### ✅ Step 4: Auto-resume AudioContext
+- [x] Resume otomatis saat visibility change
+- [x] Resume juga sebelum play sound jika state 'suspended'
+
+### ✅ Step 5: Service Worker untuk Notifikasi Background
+- [x] Buat file `sw.js` untuk service worker
+- [x] Daftarkan service worker di `index.html`
+- [x] Service worker menangani event `push` dan `notificationclick`
+
+### ✅ Step 6: Testing & Validasi
+- [x] Verifikasi semua perubahan sudah terintegrasi dengan benar
 
