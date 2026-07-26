@@ -1047,9 +1047,16 @@ if (rundownBtn && rundownModal) {
         rundownModal.classList.remove("hidden");
         rundownModal.setAttribute("aria-hidden", "false");
         // Reset zoom saat membuka modal
-        rundownPngZoomLevel = 1.0;
-        applyRundownPngZoom();
+        rundownZoomLevel = 100;
+        updateRundownZoom();
     });
+}
+
+if (rundownClose1) {
+    rundownClose1.addEventListener("click", closeRundownModal);
+}
+if (rundownClose2) {
+    rundownClose2.addEventListener("click", closeRundownModal);
 }
 
 function showRundownModal() {
@@ -1057,45 +1064,18 @@ function showRundownModal() {
     if(!m) return;
     m.classList.remove("hidden");
     m.setAttribute("aria-hidden", "false");
+    rundownZoomLevel = 100;
+    updateRundownZoom();
 }
 
-// Zoom controls untuk gambar rundown PNG
-let rundownPngZoomLevel = 1.0;
-const RUNDOWN_PNG_ZOOM_STEP = 0.15;
-const RUNDOWN_PNG_MIN_ZOOM = 0.3;
-const RUNDOWN_PNG_MAX_ZOOM = 3.0;
-
-function applyRundownPngZoom() {
-    const img = document.getElementById('rundown-png-image');
-    if (img) {
-        img.style.transform = `scale(${rundownPngZoomLevel})`;
-        img.style.transformOrigin = 'center center';
-    }
-}
-
-document.getElementById('btn-rundown-zoom-in')?.addEventListener('click', () => {
-    if (rundownPngZoomLevel < RUNDOWN_PNG_MAX_ZOOM) {
-        rundownPngZoomLevel = Math.min(rundownPngZoomLevel + RUNDOWN_PNG_ZOOM_STEP, RUNDOWN_PNG_MAX_ZOOM);
-        applyRundownPngZoom();
-    }
-});
-
-document.getElementById('btn-rundown-zoom-out')?.addEventListener('click', () => {
-    if (rundownPngZoomLevel > RUNDOWN_PNG_MIN_ZOOM) {
-        rundownPngZoomLevel = Math.max(rundownPngZoomLevel - RUNDOWN_PNG_ZOOM_STEP, RUNDOWN_PNG_MIN_ZOOM);
-        applyRundownPngZoom();
-    }
-});
-
-// Reset zoom saat modal ditutup
-const closeRundown = () => {
-    rundownPngZoomLevel = 1.0;
-    applyRundownPngZoom();
+function closeRundownModal() {
+    rundownZoomLevel = 100;
+    updateRundownZoom();
     if (rundownModal) {
         rundownModal.classList.add("hidden");
         rundownModal.setAttribute("aria-hidden", "true");
     }
-};
+}
 
 // IZIN (GURU)
 const izinOverlay = document.getElementById("izin-overlay");
@@ -1923,6 +1903,70 @@ function exportReportPdf() {
 
 document.getElementById("btn-export-csv")?.addEventListener("click", exportReportCsv);
 document.getElementById("btn-export-pdf")?.addEventListener("click", exportReportPdf);
+
+// ==========================================================================
+// RUNDOWN ZOOM CONTROLS (Zoom in/out gambar jadwal)
+// ==========================================================================
+let rundownZoomLevel = 100;
+const RUNDOWN_ZOOM_MIN = 30;
+const RUNDOWN_ZOOM_MAX = 300;
+const RUNDOWN_ZOOM_STEP = 15;
+
+function updateRundownZoom() {
+    const img = document.getElementById('rundown-png-image');
+    const display = document.getElementById('rundown-zoom-display');
+    if (img) {
+        img.style.transform = `scale(${rundownZoomLevel / 100})`;
+        img.style.transformOrigin = 'center center';
+    }
+    if (display) {
+        display.textContent = rundownZoomLevel + '%';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const zoomInBtn = document.getElementById('btn-rundown-zoom-in');
+    const zoomOutBtn = document.getElementById('btn-rundown-zoom-out');
+    
+    if (zoomInBtn) {
+        zoomInBtn.addEventListener('click', () => {
+            rundownZoomLevel = Math.min(RUNDOWN_ZOOM_MAX, rundownZoomLevel + RUNDOWN_ZOOM_STEP);
+            updateRundownZoom();
+        });
+    }
+    
+    if (zoomOutBtn) {
+        zoomOutBtn.addEventListener('click', () => {
+            rundownZoomLevel = Math.max(RUNDOWN_ZOOM_MIN, rundownZoomLevel - RUNDOWN_ZOOM_STEP);
+            updateRundownZoom();
+        });
+    }
+    
+    // Reset zoom when modal opens
+    const rundownModal = document.getElementById('rundown-modal');
+    if (rundownModal) {
+        const observer = new MutationObserver(() => {
+            if (!rundownModal.classList.contains('hidden')) {
+                rundownZoomLevel = 100;
+                updateRundownZoom();
+            }
+        });
+        observer.observe(rundownModal, { attributes: true, attributeFilter: ['class'] });
+    }
+});
+
+// ==========================================================================
+// PAGE VISIBILITY API — Refresh notifikasi saat tab kembali aktif
+// ==========================================================================
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && currentUser && currentUser.role === 'guru') {
+        // Tab kembali aktif: refresh jadwal notifikasi
+        if (rundownClassNotifyTimer) {
+            lastRundownClassKey = '';
+            tickRundownClassNotify();
+        }
+    }
+});
 
 // ==========================================================================
 // BOOTSTRAP

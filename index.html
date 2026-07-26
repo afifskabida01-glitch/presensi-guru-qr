@@ -172,17 +172,22 @@
                     <button class="btn-close-modal" id="btn-close-rundown-modal"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="modal-body" style="padding: 16px 20px 20px;">
-                    <div style="display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom: 12px;">
-                        <div style="font-size:13px; color: var(--text-secondary);">
-                            Menampilkan jadwal pelajaran (gambar).
+<div class="rundown-zoom-controls">
+                        <div class="rundown-zoom-label">
+                            <i class="fa-solid fa-image"></i> Menampilkan jadwal pelajaran.
                         </div>
-                        <div>
-                            <button class="btn btn-secondary" id="btn-rundown-zoom-out" style="padding: 10px 14px;"><i class="fa-solid fa-magnifying-minus"></i></button>
-                            <button class="btn btn-secondary" id="btn-rundown-zoom-in" style="padding: 10px 14px; margin-left: 8px;"><i class="fa-solid fa-magnifying-plus"></i></button>
+                        <div class="rundown-zoom-buttons">
+                            <button class="btn-zoom" id="btn-rundown-zoom-out" title="Perkecil">
+                                <i class="fa-solid fa-search-minus"></i>
+                            </button>
+                            <span class="rundown-zoom-level" id="rundown-zoom-display">100%</span>
+                            <button class="btn-zoom" id="btn-rundown-zoom-in" title="Perbesar">
+                                <i class="fa-solid fa-search-plus"></i>
+                            </button>
                         </div>
                     </div>
                     <div style="border:1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow:hidden; background: rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; min-height: 200px;">
-                        <img id="rundown-png-image" src="jadwal_pelajaran.png" alt="Jadwal Pelajaran" style="width: 100%; height: auto; object-fit: contain; display: block;" onerror="this.parentElement.innerHTML='<div style=\'padding:40px; text-align:center; color:var(--text-muted);\'><i class=\'fa-solid fa-image\' style=\'font-size:40px; margin-bottom:12px; display:block;\'></i>Gambar jadwal belum tersedia. Silakan unggah file <strong>jadwal_pelajaran.png</strong> di folder yang sama.</div>'">
+<img id="rundown-png-image" src="jadwal_pelajaran_2026_27-1.png" alt="Jadwal Pelajaran" style="width: 100%; height: auto; object-fit: contain; display: block;" onerror="this.parentElement.innerHTML='<div style=\'padding:40px; text-align:center; color:var(--text-muted);\'><i class=\'fa-solid fa-image\' style=\'font-size:40px; margin-bottom:12px; display:block;\'></i>Gambar jadwal belum tersedia. Silakan unggah file <strong>jadwal_pelajaran_2026_27-1.png</strong> di folder yang sama.</div>'">
                     </div>
 
                     <div style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">

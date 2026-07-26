@@ -695,6 +695,61 @@ select option { background: var(--bg-app); color: var(--text-main); }
 }
 
 /* ==========================================================================
+   RUNDOWN ZOOM CONTROLS
+   ========================================================================== */
+.rundown-zoom-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.rundown-zoom-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.rundown-zoom-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.btn-zoom {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border-glass-light);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-main);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s;
+}
+.btn-zoom:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--color-primary);
+}
+.btn-zoom:active {
+    transform: scale(0.92);
+}
+.rundown-zoom-level {
+    min-width: 42px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: rgba(0,0,0,0.2);
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
    NOTIFIKASI PERGANTIAN MAPEL
    ========================================================================== */
 .class-change-overlay {
