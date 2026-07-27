@@ -2122,11 +2122,7 @@ function exportReportPdf() {
                 pageNum++;
 
                 // Watermark di halaman baru
-                doc.setFont('Times', 'normal');
-                doc.setFontSize(60);
-                doc.setTextColor(200, 200, 200);
-                doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, pageHeight / 2, { align: 'center', angle: -30 });
-                doc.setTextColor(0, 0, 0);
+                drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
 
                 y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
 
@@ -2176,7 +2172,7 @@ function exportReportPdf() {
 
         y += 12;
 
-// ---- FOOTER / TANDA TANGAN ----
+        // ---- FOOTER / TANDA TANGAN ---- (dengan watermark & header otomatis)
         if (y > pageHeight - 35) {
             doc.setFont('Times', 'italic');
             doc.setFontSize(8);
@@ -2418,6 +2414,7 @@ function exportIzinSakitPdf() {
         pageNum++;
         y = 20;
         drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
+        y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);
     }
 
     drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y);
