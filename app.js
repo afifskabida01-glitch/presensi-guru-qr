@@ -2200,6 +2200,66 @@ function exportReportPdf() {
     });
 }
 
+// Helper: cari nama guru berdasarkan jabatan dari data guru
+function findTeacherNameByJabatan(keyword) {
+    if (!state.teachers || state.teachers.length === 0) return '';
+    const t = state.teachers.find(t => t.jabatan && t.jabatan.toLowerCase().includes(keyword.toLowerCase()));
+    return t ? t.name : '';
+}
+
+// Helper: cari nama Kepala Sekolah
+function findHeadmasterName() {
+    const name = findTeacherNameByJabatan('kepala sekolah');
+    return name || 'Kepala Sekolah';
+}
+
+// Helper: cari nama Kepala Tata Usaha
+function findTUName() {
+    const name = findTeacherNameByJabatan('tata usaha');
+    return name || 'Kepala Tata Usaha';
+}
+
+// Helper: cari nama Petugas Piket hari ini
+function findPicketName() {
+    if (!state.teachers || state.teachers.length === 0) return 'Petugas Piket';
+    const todayName = getDayName(new Date());
+    const t = state.teachers.find(t => t.picketDay === todayName && t.name);
+    return t ? t.name : 'Petugas Piket';
+}
+
+// Helper: draw footer tanda tangan dengan nama otomatis dari data guru
+function drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y) {
+    const headmasterName = findHeadmasterName();
+    const tuName = findTUName();
+    const picketName = findPicketName();
+
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.4);
+    doc.line(marginLeft + 5, y, marginLeft + 50, y);
+    doc.setFont('Times', 'normal');
+    doc.setFontSize(9);
+    doc.text(headmasterName, marginLeft + 5, y + 5);
+    doc.setFont('Times', 'italic');
+    doc.setFontSize(7);
+    doc.text('Kepala Sekolah', marginLeft + 5, y + 9);
+    doc.setFont('Times', 'normal');
+    doc.setFontSize(9);
+
+    doc.line(pageWidth / 2 - 22, y, pageWidth / 2 + 28, y);
+    doc.text(tuName, pageWidth / 2 - 22, y + 5);
+    doc.setFont('Times', 'italic');
+    doc.setFontSize(7);
+    doc.text('Kepala Tata Usaha', pageWidth / 2 - 22, y + 9);
+    doc.setFont('Times', 'normal');
+    doc.setFontSize(9);
+
+    doc.line(pageWidth - marginRight - 50, y, pageWidth - marginRight - 5, y);
+    doc.text(picketName, pageWidth - marginRight - 50, y + 5);
+    doc.setFont('Times', 'italic');
+    doc.setFontSize(7);
+    doc.text('Petugas Piket', pageWidth - marginRight - 50, y + 9);
+}
+
 // ==========================================================================
 // EXPORT PDF LAPORAN IZIN & SAKIT
 // ==========================================================================

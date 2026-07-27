@@ -19,9 +19,9 @@
 - [x] `loadNotifConfig()` / `autoDetectNotifNumbers()` → isi otomatis ke 2 field piket (`picket-phone-1` & `picket-phone-2`)
 - [x] `saveNotifConfig()` → simpan ke array `picketPhones` dari 2 input field manual
 
-### Step 3: Test
-- [x] Fix syntax error (missing `});`) in `exportIzinSakitPdf()` function that caused TS errors
-- [ ] Verifikasi 2 guru piket dengan hari yang sama terdeteksi
-- [ ] Verifikasi notifikasi WA terbuka ke 3 nomor
-- [ ] Verifikasi kepala sekolah tidak bisa diubah manual
+### Step 3: Test (manual oleh user)
+- [ ] Verifikasi 2 guru piket dengan hari yang sama terdeteksi otomatis
+- [ ] Verifikasi notifikasi WA terbuka ke 3 nomor (1 Kepsek + 2 Piket) saat guru lapor izin
+- [ ] Verifikasi kepala sekolah readonly tidak bisa diubah manual
+- [ ] Verifikasi tombol Refresh Kepsek berfungsi
 
