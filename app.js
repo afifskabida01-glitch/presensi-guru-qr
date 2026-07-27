@@ -1916,17 +1916,40 @@ function exportReportCsv() {
 }
 
 
-function drawWatermark(doc, pageWidth, pageHeight) {
-    // Watermark text "SMK BIDAYATUL HIDAYAH" diagonal di background
-    doc.setFont('Times', 'normal');
-    doc.setFontSize(55);
-    // Abu-abu sangat terang untuk watermark
-    doc.setTextColor(210, 210, 210);
-    doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2 + 10, pageHeight / 2 + 5, { 
-        align: 'center', 
-        angle: -30 
-    });
-    doc.setTextColor(0, 0, 0);
+function drawWatermark(doc, pageWidth, pageHeight, watermarkLogo) {
+    // Watermark menggunakan logo.png sebagai gambar transparan di background
+    if (watermarkLogo && watermarkLogo.width > 0) {
+        try {
+            // Ukuran watermark: sekitar 60% dari lebar halaman
+            const wmSize = pageWidth * 0.55;
+            const wmX = (pageWidth - wmSize) / 2;
+            const wmY = (pageHeight - wmSize) / 2;
+            // Opacity: dengan alpha PNG atau dengan opacity setting
+            doc.setGState(new doc.GState({ opacity: 0.12 }));
+            doc.addImage(watermarkLogo, 'PNG', wmX, wmY, wmSize, wmSize);
+            doc.setGState(new doc.GState({ opacity: 1 }));
+        } catch (e) {
+            // Fallback ke teks jika gambar gagal
+            doc.setFont('Times', 'normal');
+            doc.setFontSize(55);
+            doc.setTextColor(210, 210, 210);
+            doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2 + 10, pageHeight / 2 + 5, { 
+                align: 'center', 
+                angle: -30 
+            });
+            doc.setTextColor(0, 0, 0);
+        }
+    } else {
+        // Fallback teks jika gambar tidak tersedia
+        doc.setFont('Times', 'normal');
+        doc.setFontSize(55);
+        doc.setTextColor(210, 210, 210);
+        doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2 + 10, pageHeight / 2 + 5, { 
+            align: 'center', 
+            angle: -30 
+        });
+        doc.setTextColor(0, 0, 0);
+    }
 }
 
 function loadPdfLogos(callback) {
@@ -2020,8 +2043,8 @@ function exportReportPdf() {
         const marginRight = 14;
         const contentWidth = pageWidth - marginLeft - marginRight;
 
-        // ---- WATERMARK (teks di tengah) ----
-        drawWatermark(doc, pageWidth, pageHeight);
+        // ---- WATERMARK (logo.png di tengah) ----
+        drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
 
         // ---- HEADER (Kop Surat) ----
         let y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
@@ -2153,7 +2176,7 @@ function exportReportPdf() {
 
         y += 12;
 
-        // ---- FOOTER / TANDA TANGAN ----
+// ---- FOOTER / TANDA TANGAN ----
         if (y > pageHeight - 35) {
             doc.setFont('Times', 'italic');
             doc.setFontSize(8);
@@ -2162,27 +2185,13 @@ function exportReportPdf() {
             doc.addPage();
             pageNum++;
             y = 18;
-            // Watermark
-            doc.setFont('Times', 'normal');
-            doc.setFontSize(60);
-            doc.setTextColor(200, 200, 200);
-            doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, pageHeight / 2, { align: 'center', angle: -30 });
-            doc.setTextColor(0, 0, 0);
+            // Watermark di halaman baru
+            drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
+            y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);
         }
 
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.4);
-        doc.line(marginLeft + 5, y, marginLeft + 50, y);
-        doc.setFont('Times', 'normal');
-        doc.setFontSize(9);
-        doc.text('Kepala Sekolah', marginLeft + 5, y + 5);
-        doc.text('SMK Bidayatul Hidayah', marginLeft + 5, y + 10);
-
-        doc.line(pageWidth / 2 - 22, y, pageWidth / 2 + 28, y);
-        doc.text('Kepala Tata Usaha', pageWidth / 2 - 22, y + 5);
-
-        doc.line(pageWidth - marginRight - 50, y, pageWidth - marginRight - 5, y);
-        doc.text('Petugas Piket', pageWidth - marginRight - 50, y + 5);
+        // Gunakan drawPdfFooter yang sudah mengambil nama otomatis dari data guru
+        drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y);
 
         y += 18;
         doc.setFont('Times', 'italic');
@@ -2296,28 +2305,11 @@ function exportIzinSakitPdf() {
         const marginRight = 14;
         const contentWidth = pageWidth - marginLeft - marginRight;
 
-        // ---- WATERMARK (teks di tengah) ----
-        drawWatermark(doc, pageWidth, pageHeight);
+        // ---- WATERMARK (logo.png di tengah) ----
+        drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
 
-        // ---- HEADER ----
-        let y = 18;
-        doc.setFont('Times', 'bold');
-        doc.setFontSize(14);
-        doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, y, { align: 'center' });
-        y += 7;
-        doc.setFont('Times', 'normal');
-        doc.setFontSize(9);
-        doc.text('Jl. Padangasri Ds. Mojogeneng Kec. Jatirejo, Mojokerto', pageWidth / 2, y, { align: 'center' });
-        y += 5;
-        doc.text('smk.bidayatulhidayah@gmail.com | smkbidayatulhidayah.sch.id', pageWidth / 2, y, { align: 'center' });
-        y += 5;
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.8);
-        doc.line(marginLeft, y, pageWidth - marginRight, y);
-        y += 1.5;
-        doc.setLineWidth(0.4);
-        doc.line(marginLeft, y, pageWidth - marginRight, y);
-        y += 8;
+        // ---- HEADER (pake drawPdfHeader) ----
+        let y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
 
         // ---- JUDUL ----
     doc.setFont('Times', 'bold');
@@ -2372,29 +2364,11 @@ function exportIzinSakitPdf() {
             pageNum++;
             y = 20;
 
-            doc.setFont('Times', 'normal');
-            doc.setFontSize(60);
-            doc.setTextColor(200, 200, 200);
-            doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, pageHeight / 2, { align: 'center', angle: -30 });
-            doc.setTextColor(0, 0, 0);
+            // Watermark di halaman baru
+            drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
 
-            doc.setFont('Times', 'bold');
-            doc.setFontSize(14);
-            doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, y, { align: 'center' });
-            y += 7;
-            doc.setFont('Times', 'normal');
-            doc.setFontSize(9);
-            doc.text('Jl. Padangasri Ds. Mojogeneng Kec. Jatirejo, Mojokerto', pageWidth / 2, y, { align: 'center' });
-            y += 5;
-            doc.text('smk.bidayatulhidayah@gmail.com | smkbidayatulhidayah.sch.id', pageWidth / 2, y, { align: 'center' });
-            y += 5;
-            doc.setDrawColor(0, 0, 0);
-            doc.setLineWidth(0.8);
-            doc.line(marginLeft, y, pageWidth - marginRight, y);
-            y += 1.5;
-            doc.setLineWidth(0.4);
-            doc.line(marginLeft, y, pageWidth - marginRight, y);
-            y += 8;
+            // Header ulang
+            y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);
 
             doc.setFillColor(220, 220, 220);
             doc.rect(marginLeft, y - 4, contentWidth, 7, 'F');
@@ -2434,7 +2408,7 @@ function exportIzinSakitPdf() {
 
     y += 12;
 
-    // ---- FOOTER ----
+    // ---- FOOTER (pake drawPdfFooter) ----
     if (y > pageHeight - 35) {
         doc.setFont('Times', 'italic');
         doc.setFontSize(8);
@@ -2443,26 +2417,10 @@ function exportIzinSakitPdf() {
         doc.addPage();
         pageNum++;
         y = 20;
-        doc.setFont('Times', 'normal');
-        doc.setFontSize(60);
-        doc.setTextColor(200, 200, 200);
-        doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, pageHeight / 2, { align: 'center', angle: -30 });
-        doc.setTextColor(0, 0, 0);
+        drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
     }
 
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.4);
-    doc.line(marginLeft + 5, y, marginLeft + 50, y);
-    doc.setFont('Times', 'normal');
-    doc.setFontSize(9);
-    doc.text('Kepala Sekolah', marginLeft + 5, y + 5);
-    doc.text('SMK Bidayatul Hidayah', marginLeft + 5, y + 10);
-
-    doc.line(pageWidth / 2 - 22, y, pageWidth / 2 + 28, y);
-    doc.text('Kepala Tata Usaha', pageWidth / 2 - 22, y + 5);
-
-    doc.line(pageWidth - marginRight - 50, y, pageWidth - marginRight - 5, y);
-    doc.text('Petugas Piket', pageWidth - marginRight - 50, y + 5);
+    drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y);
 
     y += 18;
     doc.setFont('Times', 'italic');
