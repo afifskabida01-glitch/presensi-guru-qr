@@ -1127,8 +1127,8 @@ document.getElementById("btn-submit-izin").addEventListener("click", () => {
 
 // Konfigurasi nomor WhatsApp untuk notifikasi (auto-detect dari data guru)
 let notifConfig = {
-    headmasterPhone: '',  // Akan diisi otomatis dari data guru
-    picketPhone: ''        // Akan diisi otomatis dari data guru
+    headmasterPhone: '',   // Otomatis dari data guru (Kepala Sekolah) - FIXED / READONLY
+    picketPhones: []       // Array of nomor guru piket hari ini (bisa 1, 2, atau lebih)
 };
 
 // Format nomor HP lokal (08xxx) ke format internasional (628xxx)
@@ -1144,95 +1144,88 @@ function formatPhoneToInternational(phone) {
     return cleaned;
 }
 
-// Cari nomor Kepala Sekolah dari data guru
+// Cari nomor Kepala Sekolah dari data guru (HANYA dari jabatan "Kepala Sekolah")
 function findHeadmasterPhone() {
     if (!state.teachers || state.teachers.length === 0) return '';
+    // Cari guru dengan jabatan "Kepala Sekolah" secara spesifik
     const headmaster = state.teachers.find(t => 
         t.jabatan && (
             t.jabatan.toLowerCase().includes('kepala sekolah') ||
-            t.jabatan.toLowerCase().includes('kepala') ||
             t.jabatan.toLowerCase() === 'kepsek'
         )
     );
     if (headmaster && headmaster.noHp) {
         return formatPhoneToInternational(headmaster.noHp);
     }
-    const firstWithPhone = state.teachers.find(t => t.noHp && t.noHp.trim());
-    if (firstWithPhone) {
-        return formatPhoneToInternational(firstWithPhone.noHp);
-    }
     return '';
 }
 
-// Cari nomor Guru Piket hari ini dari data guru
-function findPicketPhone() {
-    if (!state.teachers || state.teachers.length === 0) return '';
+// Cari nomor SEMUA Guru Piket hari ini dari data guru (return array)
+function findPicketPhones() {
+    if (!state.teachers || state.teachers.length === 0) return [];
     const todayName = getDayName(new Date());
-    const picketTeacher = state.teachers.find(t => 
+    // Cari semua guru yang piket hari ini dan punya nomor HP
+    const picketTeachers = state.teachers.filter(t => 
         t.picketDay === todayName && t.noHp && t.noHp.trim()
     );
-    if (picketTeacher && picketTeacher.noHp) {
-        return formatPhoneToInternational(picketTeacher.noHp);
-    }
-    const picketByJabatan = state.teachers.find(t => 
-        t.jabatan && (
-            t.jabatan.toLowerCase().includes('piket') ||
-            t.jabatan.toLowerCase().includes('petugas')
-        ) && t.noHp && t.noHp.trim()
-    );
-    if (picketByJabatan && picketByJabatan.noHp) {
-        return formatPhoneToInternational(picketByJabatan.noHp);
-    }
-    return '';
+    // Urutkan: Guru Piket yang punya jadwal datang/piketCheckIn lebih awal lebih dulu
+    picketTeachers.sort((a, b) => (a.picketCheckIn || '12:00').localeCompare(b.picketCheckIn || '12:00'));
+    return picketTeachers.map(t => formatPhoneToInternational(t.noHp));
 }
 
 // Auto-detect nomor WhatsApp dari data guru
 function autoDetectNotifNumbers() {
     const detectedHeadmaster = findHeadmasterPhone();
-    const detectedPicket = findPicketPhone();
-    if (detectedHeadmaster) notifConfig.headmasterPhone = detectedHeadmaster;
-    if (detectedPicket) notifConfig.picketPhone = detectedPicket;
+    const detectedPickets = findPicketPhones();
+    
+    // Kepala Sekolah: FIXED, hanya dari data guru, tidak bisa di-override
+    if (detectedHeadmaster) {
+        notifConfig.headmasterPhone = detectedHeadmaster;
+    }
+    
+    // Guru Piket: isi array dari data guru
+    notifConfig.picketPhones = detectedPickets;
+    
+    // Update field di UI
     const hmField = document.getElementById('notif-headmaster-phone');
-    const pkField = document.getElementById('notif-picket-phone');
+    const pkField1 = document.getElementById('notif-picket-phone-1');
+    const pkField2 = document.getElementById('notif-picket-phone-2');
+    
     if (hmField) hmField.value = notifConfig.headmasterPhone;
-    if (pkField) pkField.value = notifConfig.picketPhone;
+    if (pkField1) pkField1.value = notifConfig.picketPhones[0] || '';
+    if (pkField2) pkField2.value = notifConfig.picketPhones[1] || '';
+    
+    // Simpan otomatis
     localStorage.setItem('qr_presensi_notif_config', JSON.stringify(notifConfig));
 }
 
 // Load konfigurasi + auto-detect nomor dari data guru
 function loadNotifConfig() {
     try {
-        // Auto-detect nomor dari data guru (prioritas utama)
-        autoDetectNotifNumbers();
-        
-        // Baca simpanan manual user (override jika ada)
+        // Baca simpanan sebelumnya (jika ada)
         const saved = localStorage.getItem('qr_presensi_notif_config');
         if (saved) {
-            const parsed = JSON.parse(saved);
-            const hmField = document.getElementById('notif-headmaster-phone');
-            const pkField = document.getElementById('notif-picket-phone');
-            
-            // Pakai nilai manual jika user pernah input
-            if (hmField && hmField.value && hmField.value !== '6281234567890' && hmField.value !== notifConfig.headmasterPhone) {
-                notifConfig.headmasterPhone = hmField.value;
-            } else if (parsed.headmasterPhone && parsed.headmasterPhone !== '6281234567890' && parsed.headmasterPhone !== notifConfig.headmasterPhone) {
-                notifConfig.headmasterPhone = parsed.headmasterPhone;
-            }
-            
-            if (pkField && pkField.value && pkField.value !== '6281234567890' && pkField.value !== notifConfig.picketPhone) {
-                notifConfig.picketPhone = pkField.value;
-            } else if (parsed.picketPhone && parsed.picketPhone !== '6281234567890' && parsed.picketPhone !== notifConfig.picketPhone) {
-                notifConfig.picketPhone = parsed.picketPhone;
-            }
+            try {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed.picketPhones)) {
+                    notifConfig.picketPhones = parsed.picketPhones;
+                }
+            } catch (e) { /* ignore parse error */ }
         }
         
-        // Update field di admin panel
-        const hmField = document.getElementById('notif-headmaster-phone');
-        const pkField = document.getElementById('notif-picket-phone');
-        if (hmField) hmField.value = notifConfig.headmasterPhone;
-        if (pkField) pkField.value = notifConfig.picketPhone;
+        // Auto-detect nomor dari data guru (prioritas utama untuk kepala sekolah)
+        autoDetectNotifNumbers();
         
-        // Auto-detect lagi setelah render teachers
+        // Tampilkan di field
+        const hmField = document.getElementById('notif-headmaster-phone');
+        const pkField1 = document.getElementById('notif-picket-phone-1');
+        const pkField2 = document.getElementById('notif-picket-phone-2');
+        
+        if (hmField) hmField.value = notifConfig.headmasterPhone;
+        if (pkField1) pkField1.value = notifConfig.picketPhones[0] || '';
+        if (pkField2) pkField2.value = notifConfig.picketPhones[1] || '';
+        
+        // Auto-detect ulang setelah 1 detik (tunggu data guru ter-render)
         setTimeout(autoDetectNotifNumbers, 1000);
         
     } catch (e) {
@@ -1241,35 +1234,50 @@ function loadNotifConfig() {
     }
 }
 
-// Simpan konfigurasi notifikasi (dengan auto-detect fallback)
+// Simpan konfigurasi notifikasi dari input manual (khusus guru piket)
 function saveNotifConfig() {
-    const hmField = document.getElementById('notif-headmaster-phone');
-    const pkField = document.getElementById('notif-picket-phone');
+    const pkField1 = document.getElementById('notif-picket-phone-1');
+    const pkField2 = document.getElementById('notif-picket-phone-2');
     
-    if (hmField) {
-        const val = hmField.value.trim();
-        notifConfig.headmasterPhone = val || findHeadmasterPhone() || '';
-    }
-    if (pkField) {
-        const val = pkField.value.trim();
-        notifConfig.picketPhone = val || findPicketPhone() || '';
-    }
+    // Baca nomor dari input manual
+    const phone1 = pkField1 ? pkField1.value.trim() : '';
+    const phone2 = pkField2 ? pkField2.value.trim() : '';
+    
+    // Kumpulkan nomor yang valid
+    const phones = [];
+    if (phone1) phones.push(phone1);
+    if (phone2) phones.push(phone2);
     
     // Validasi format nomor (harus angka)
-    if (notifConfig.headmasterPhone && !/^\d+$/.test(notifConfig.headmasterPhone)) {
-        alert('Nomor WhatsApp Kepala Sekolah tidak valid! Harus berupa angka (format: 628xxx)');
-        return;
-    }
-    if (notifConfig.picketPhone && !/^\d+$/.test(notifConfig.picketPhone)) {
-        alert('Nomor WhatsApp Guru Piket tidak valid! Harus berupa angka (format: 628xxx)');
-        return;
+    for (const phone of phones) {
+        if (!/^\d+$/.test(phone)) {
+            alert('Nomor WhatsApp tidak valid! Harus berupa angka (format: 628xxx)');
+            return;
+        }
     }
     
+    notifConfig.picketPhones = phones;
     localStorage.setItem('qr_presensi_notif_config', JSON.stringify(notifConfig));
-    alert('✅ Konfigurasi notifikasi WhatsApp berhasil disimpan!');
+    alert('✅ Konfigurasi nomor Guru Piket berhasil disimpan!');
 }
 
 window.saveNotifConfig = saveNotifConfig;
+
+// Refresh nomor Kepala Sekolah dari data guru (dipanggil tombol Refresh di UI)
+function refreshHeadmasterPhone() {
+    const detected = findHeadmasterPhone();
+    if (detected) {
+        notifConfig.headmasterPhone = detected;
+        const hmField = document.getElementById('notif-headmaster-phone');
+        if (hmField) hmField.value = detected;
+        localStorage.setItem('qr_presensi_notif_config', JSON.stringify(notifConfig));
+        alert('✅ Nomor Kepala Sekolah berhasil diperbarui: ' + detected);
+    } else {
+        alert('⚠️ Tidak ditemukan guru dengan jabatan "Kepala Sekolah". Pastikan data guru sudah diisi dengan jabatan yang benar.');
+    }
+}
+
+window.refreshHeadmasterPhone = refreshHeadmasterPhone;
 
 // Kirim notifikasi izin/sakit via WhatsApp
 function sendIzinWhatsAppNotification(teacherName, type, keterangan, dateStr) {
@@ -1289,12 +1297,16 @@ function sendIzinWhatsAppNotification(teacherName, type, keterangan, dateStr) {
             window.open(waUrl1, '_blank');
         }
         
-        // Kirim ke Guru Piket (dengan jeda agar tidak di-block browser popup)
-        if (notifConfig.picketPhone) {
-            setTimeout(() => {
-                const waUrl2 = `https://wa.me/${notifConfig.picketPhone}?text=${encodeURIComponent(message)}`;
-                window.open(waUrl2, '_blank');
-            }, 800);
+        // Kirim ke SEMUA Guru Piket (dengan jeda agar tidak di-block browser popup)
+        if (notifConfig.picketPhones && notifConfig.picketPhones.length > 0) {
+            notifConfig.picketPhones.forEach((phone, idx) => {
+                setTimeout(() => {
+                    if (phone) {
+                        const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+                        window.open(waUrl, '_blank');
+                    }
+                }, 800 + (idx * 500)); // jeda 800ms, +500ms per nomor tambahan
+            });
         }
         
         console.log('Notifikasi WhatsApp dikirim:', { teacherName, type, keterangan });
@@ -1903,27 +1915,44 @@ function exportReportCsv() {
     link.click();
 }
 
+
+function drawWatermark(doc, pageWidth, pageHeight) {
+    // Watermark text "SMK BIDAYATUL HIDAYAH" diagonal di background
+    doc.setFont('Times', 'normal');
+    doc.setFontSize(55);
+    // Abu-abu sangat terang untuk watermark
+    doc.setTextColor(210, 210, 210);
+    doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2 + 10, pageHeight / 2 + 5, { 
+        align: 'center', 
+        angle: -30 
+    });
+    doc.setTextColor(0, 0, 0);
+}
+
 function loadPdfLogos(callback) {
-    // Muat logo untuk PDF: logo.png (kiri), img_smk_bisa.png (kanan)
     const logoLeft = new Image();
     const logoRight = new Image();
+    const watermarkLogo = new Image(); // siapkan untuk watermark
     let loaded = 0;
-    const total = 2;
+    const total = 3; // 3 images
 
     function onLoad() {
         loaded++;
         if (loaded >= total) {
-            callback(logoLeft, logoRight);
+            callback(logoLeft, logoRight, watermarkLogo);
         }
     }
 
     logoLeft.onload = onLoad;
-    logoLeft.onerror = onLoad; // tetap lanjut walau gagal load
+    logoLeft.onerror = onLoad;
     logoRight.onload = onLoad;
     logoRight.onerror = onLoad;
+    watermarkLogo.onload = onLoad;
+    watermarkLogo.onerror = onLoad;
 
     logoLeft.src = 'logo.png';
     logoRight.src = 'img_smk_bisa.png';
+    watermarkLogo.src = 'logo.png'; // pakai logo.png untuk watermark
 }
 
 function drawPdfHeader(doc, pageWidth, marginLeft, marginRight, yStart, logoLeft, logoRight) {
@@ -1982,7 +2011,7 @@ function exportReportPdf() {
     }
 
     // Muat logo dulu, baru generate PDF
-    loadPdfLogos((logoLeft, logoRight) => {
+    loadPdfLogos((logoLeft, logoRight, watermarkLogo) => {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         const pageWidth = doc.internal.pageSize.getWidth(); // 210mm
@@ -1991,12 +2020,8 @@ function exportReportPdf() {
         const marginRight = 14;
         const contentWidth = pageWidth - marginLeft - marginRight;
 
-        // ---- WATERMARK (teks transparan di tengah) ----
-        doc.setFont('Times', 'normal');
-        doc.setFontSize(60);
-        doc.setTextColor(200, 200, 200);
-        doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, pageHeight / 2, { align: 'center', angle: -30 });
-        doc.setTextColor(0, 0, 0);
+        // ---- WATERMARK (teks di tengah) ----
+        drawWatermark(doc, pageWidth, pageHeight);
 
         // ---- HEADER (Kop Surat) ----
         let y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
@@ -2201,42 +2226,40 @@ function exportIzinSakitPdf() {
         return;
     }
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const marginLeft = 14;
-    const marginRight = 14;
-    const contentWidth = pageWidth - marginLeft - marginRight;
+    // Muat logo dulu, baru generate PDF
+    loadPdfLogos((logoLeft, logoRight, watermarkLogo) => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const marginLeft = 14;
+        const marginRight = 14;
+        const contentWidth = pageWidth - marginLeft - marginRight;
 
-    // ---- WATERMARK ----
-    doc.setFont('Times', 'normal');
-    doc.setFontSize(60);
-    doc.setTextColor(200, 200, 200);
-    doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, pageHeight / 2, { align: 'center', angle: -30 });
-    doc.setTextColor(0, 0, 0);
+        // ---- WATERMARK (teks di tengah) ----
+        drawWatermark(doc, pageWidth, pageHeight);
 
-    // ---- HEADER ----
-    let y = 18;
-    doc.setFont('Times', 'bold');
-    doc.setFontSize(14);
-    doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, y, { align: 'center' });
-    y += 7;
-    doc.setFont('Times', 'normal');
-    doc.setFontSize(9);
-    doc.text('Jl. Padangasri Ds. Mojogeneng Kec. Jatirejo, Mojokerto', pageWidth / 2, y, { align: 'center' });
-    y += 5;
-    doc.text('smk.bidayatulhidayah@gmail.com | smkbidayatulhidayah.sch.id', pageWidth / 2, y, { align: 'center' });
-    y += 5;
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.8);
-    doc.line(marginLeft, y, pageWidth - marginRight, y);
-    y += 1.5;
-    doc.setLineWidth(0.4);
-    doc.line(marginLeft, y, pageWidth - marginRight, y);
-    y += 8;
+        // ---- HEADER ----
+        let y = 18;
+        doc.setFont('Times', 'bold');
+        doc.setFontSize(14);
+        doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, y, { align: 'center' });
+        y += 7;
+        doc.setFont('Times', 'normal');
+        doc.setFontSize(9);
+        doc.text('Jl. Padangasri Ds. Mojogeneng Kec. Jatirejo, Mojokerto', pageWidth / 2, y, { align: 'center' });
+        y += 5;
+        doc.text('smk.bidayatulhidayah@gmail.com | smkbidayatulhidayah.sch.id', pageWidth / 2, y, { align: 'center' });
+        y += 5;
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.8);
+        doc.line(marginLeft, y, pageWidth - marginRight, y);
+        y += 1.5;
+        doc.setLineWidth(0.4);
+        doc.line(marginLeft, y, pageWidth - marginRight, y);
+        y += 8;
 
-    // ---- JUDUL ----
+        // ---- JUDUL ----
     doc.setFont('Times', 'bold');
     doc.setFontSize(13);
     doc.text('LAPORAN IZIN / SAKIT GURU', pageWidth / 2, y, { align: 'center' });
@@ -2393,6 +2416,7 @@ function exportIzinSakitPdf() {
     doc.text('Halaman ' + pageNum, pageWidth / 2, pageHeight - 10, { align: 'center' });
 
     doc.save('Laporan_IzinSakit_' + m + '.pdf');
+    });
 }
 
 window.exportIzinSakitPdf = exportIzinSakitPdf;

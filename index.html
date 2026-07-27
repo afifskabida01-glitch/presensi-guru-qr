@@ -437,7 +437,7 @@
                 <div class="tab-content" id="tab-schedule">
                     <div class="content-header"><h2>Pengaturan & Sistem</h2></div>
                     
-                    <!-- Notifikasi WhatsApp Settings -->
+<!-- Notifikasi WhatsApp Settings -->
                     <div class="settings-card glass-card" style="border-color: rgba(16, 185, 129, 0.25); margin-bottom: 16px;">
                         <h3 style="color: var(--color-success);"><i class="fa-brands fa-whatsapp"></i> Notifikasi WhatsApp Izin/Sakit</h3>
                         <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
@@ -445,23 +445,36 @@
                         </p>
                         <div style="display: flex; flex-direction: column; gap: 12px;">
                             <div class="form-group" style="margin: 0;">
-                                <label style="font-size: 13px;">📞 Nomor WhatsApp Kepala Sekolah</label>
+                                <label style="font-size: 13px;">📞 Nomor WhatsApp Kepala Sekolah <span style="color: var(--color-info); font-size: 11px;">(Otomatis dari data guru - tidak bisa diubah)</span></label>
                                 <div style="display: flex; gap: 8px;">
-                                    <input type="text" id="notif-headmaster-phone" class="login-input" placeholder="Cth: 6281234567890" value="6281234567890" style="flex: 1;">
-                                    <button class="btn btn-success" onclick="saveNotifConfig()" style="padding: 8px 16px; white-space: nowrap;"><i class="fa-solid fa-floppy-disk"></i> Simpan</button>
+                                    <input type="text" id="notif-headmaster-phone" class="login-input" placeholder="Otomatis dari data guru..." style="flex: 1; opacity: 0.7;" readonly disabled>
+                                    <button class="btn btn-secondary" onclick="refreshHeadmasterPhone()" style="padding: 8px 16px; white-space: nowrap;" title="Perbarui dari data guru"><i class="fa-solid fa-rotate"></i> Refresh</button>
                                 </div>
-                                <small style="color: var(--text-muted); font-size: 11px;">Gunakan format internasional tanpa + atau spasi (contoh: 628xxx)</small>
+                                <small style="color: var(--text-muted); font-size: 11px;">Nomor Kepala Sekolah diambil otomatis dari data guru dengan jabatan "Kepala Sekolah".</small>
                             </div>
                             <div class="form-group" style="margin: 0;">
-                                <label style="font-size: 13px;">📞 Nomor WhatsApp Guru Piket Hari Ini</label>
+                                <label style="font-size: 13px;">📞 Nomor WhatsApp Guru Piket 1</label>
                                 <div style="display: flex; gap: 8px;">
-                                    <input type="text" id="notif-picket-phone" class="login-input" placeholder="Cth: 6281234567890" value="6281234567890" style="flex: 1;">
+                                    <input type="text" id="notif-picket-phone-1" class="login-input" placeholder="Cth: 6281234567890" style="flex: 1;">
                                 </div>
-                                <small style="color: var(--text-muted); font-size: 11px;">Nomor guru yang sedang piket hari ini. Akan dikirimi notifikasi juga.</small>
+                                <small style="color: var(--text-muted); font-size: 11px;">Gunakan format internasional (628xxx). Akan terisi otomatis dari guru piket hari ini.</small>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; font-size: 12px; color: var(--text-secondary);">
-                                <i class="fa-solid fa-circle-info" style="color: var(--color-success);"></i>
-                                <span>Notifikasi akan dikirim ke Kepala Sekolah <strong>dan</strong> Guru Piket setiap kali ada guru yang lapor izin/sakit.</span>
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 13px;">📞 Nomor WhatsApp Guru Piket 2</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="notif-picket-phone-2" class="login-input" placeholder="Cth: 6281234567890" style="flex: 1;">
+                                </div>
+                                <small style="color: var(--text-muted); font-size: 11px;">Jika hanya ada 1 guru piket, biarkan kosong.</small>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; font-size: 12px; color: var(--text-secondary);">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-solid fa-circle-info" style="color: var(--color-success);"></i>
+                                    <span>Notifikasi akan dikirim ke:</span>
+                                </div>
+                                <ul style="margin: 4px 0 0 20px; padding: 0; list-style: disc;">
+                                    <li><strong>1 Kepala Sekolah</strong> (otomatis dari data guru)</li>
+                                    <li><strong>2 Guru Piket</strong> (nomor di atas)</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
