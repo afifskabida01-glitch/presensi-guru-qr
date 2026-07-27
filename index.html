@@ -479,7 +479,8 @@
                         <div class="content-header"><h2>Laporan Bulanan</h2></div>
                         <div class="export-actions">
                             <button class="btn btn-excel" id="btn-export-csv"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
-                            <button class="btn btn-primary" id="btn-export-pdf"><i class="fa-solid fa-file-pdf"></i> Export PDF</button>
+                            <button class="btn btn-primary" id="btn-export-pdf"><i class="fa-solid fa-file-pdf"></i> Export PDF Presensi</button>
+                            <button class="btn btn-info" onclick="exportIzinSakitPdf()" style="background:var(--color-info); color:white;"><i class="fa-solid fa-file-pdf"></i> Export PDF Izin/Sakit</button>
                         </div>
                     </div>
                     <div class="filter-bar glass-card">
@@ -598,5 +599,18 @@
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
     
     <script src="app.js?v=5.0"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('sw.js').then(function(registration) {
+                    console.log('[SW] Service Worker registered:', registration.scope);
+                }).catch(function(error) {
+                    console.warn('[SW] Service Worker registration failed:', error);
+                });
+            });
+        }
+    </script>
 </body>
 </html>

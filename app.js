@@ -1125,46 +1125,142 @@ document.getElementById("btn-submit-izin").addEventListener("click", () => {
 // NOTIFIKASI WHATSAPP IZIN/SAKIT
 // ==========================================================================
 
-// Konfigurasi nomor WhatsApp untuk notifikasi
+// Konfigurasi nomor WhatsApp untuk notifikasi (auto-detect dari data guru)
 let notifConfig = {
-    headmasterPhone: '6281234567890',  // Default, bisa diubah di admin panel
-    picketPhone: '6281234567890'        // Default, bisa diubah di admin panel
+    headmasterPhone: '',  // Akan diisi otomatis dari data guru
+    picketPhone: ''        // Akan diisi otomatis dari data guru
 };
 
-// Load konfigurasi dari localStorage
+// Format nomor HP lokal (08xxx) ke format internasional (628xxx)
+function formatPhoneToInternational(phone) {
+    if (!phone) return '';
+    let cleaned = phone.replace(/\D/g, '');
+    if (cleaned.startsWith('0')) {
+        cleaned = '62' + cleaned.substring(1);
+    }
+    if (!cleaned.startsWith('62')) {
+        cleaned = '62' + cleaned;
+    }
+    return cleaned;
+}
+
+// Cari nomor Kepala Sekolah dari data guru
+function findHeadmasterPhone() {
+    if (!state.teachers || state.teachers.length === 0) return '';
+    const headmaster = state.teachers.find(t => 
+        t.jabatan && (
+            t.jabatan.toLowerCase().includes('kepala sekolah') ||
+            t.jabatan.toLowerCase().includes('kepala') ||
+            t.jabatan.toLowerCase() === 'kepsek'
+        )
+    );
+    if (headmaster && headmaster.noHp) {
+        return formatPhoneToInternational(headmaster.noHp);
+    }
+    const firstWithPhone = state.teachers.find(t => t.noHp && t.noHp.trim());
+    if (firstWithPhone) {
+        return formatPhoneToInternational(firstWithPhone.noHp);
+    }
+    return '';
+}
+
+// Cari nomor Guru Piket hari ini dari data guru
+function findPicketPhone() {
+    if (!state.teachers || state.teachers.length === 0) return '';
+    const todayName = getDayName(new Date());
+    const picketTeacher = state.teachers.find(t => 
+        t.picketDay === todayName && t.noHp && t.noHp.trim()
+    );
+    if (picketTeacher && picketTeacher.noHp) {
+        return formatPhoneToInternational(picketTeacher.noHp);
+    }
+    const picketByJabatan = state.teachers.find(t => 
+        t.jabatan && (
+            t.jabatan.toLowerCase().includes('piket') ||
+            t.jabatan.toLowerCase().includes('petugas')
+        ) && t.noHp && t.noHp.trim()
+    );
+    if (picketByJabatan && picketByJabatan.noHp) {
+        return formatPhoneToInternational(picketByJabatan.noHp);
+    }
+    return '';
+}
+
+// Auto-detect nomor WhatsApp dari data guru
+function autoDetectNotifNumbers() {
+    const detectedHeadmaster = findHeadmasterPhone();
+    const detectedPicket = findPicketPhone();
+    if (detectedHeadmaster) notifConfig.headmasterPhone = detectedHeadmaster;
+    if (detectedPicket) notifConfig.picketPhone = detectedPicket;
+    const hmField = document.getElementById('notif-headmaster-phone');
+    const pkField = document.getElementById('notif-picket-phone');
+    if (hmField) hmField.value = notifConfig.headmasterPhone;
+    if (pkField) pkField.value = notifConfig.picketPhone;
+    localStorage.setItem('qr_presensi_notif_config', JSON.stringify(notifConfig));
+}
+
+// Load konfigurasi + auto-detect nomor dari data guru
 function loadNotifConfig() {
     try {
+        // Auto-detect nomor dari data guru (prioritas utama)
+        autoDetectNotifNumbers();
+        
+        // Baca simpanan manual user (override jika ada)
         const saved = localStorage.getItem('qr_presensi_notif_config');
         if (saved) {
             const parsed = JSON.parse(saved);
-            if (parsed.headmasterPhone) notifConfig.headmasterPhone = parsed.headmasterPhone;
-            if (parsed.picketPhone) notifConfig.picketPhone = parsed.picketPhone;
+            const hmField = document.getElementById('notif-headmaster-phone');
+            const pkField = document.getElementById('notif-picket-phone');
+            
+            // Pakai nilai manual jika user pernah input
+            if (hmField && hmField.value && hmField.value !== '6281234567890' && hmField.value !== notifConfig.headmasterPhone) {
+                notifConfig.headmasterPhone = hmField.value;
+            } else if (parsed.headmasterPhone && parsed.headmasterPhone !== '6281234567890' && parsed.headmasterPhone !== notifConfig.headmasterPhone) {
+                notifConfig.headmasterPhone = parsed.headmasterPhone;
+            }
+            
+            if (pkField && pkField.value && pkField.value !== '6281234567890' && pkField.value !== notifConfig.picketPhone) {
+                notifConfig.picketPhone = pkField.value;
+            } else if (parsed.picketPhone && parsed.picketPhone !== '6281234567890' && parsed.picketPhone !== notifConfig.picketPhone) {
+                notifConfig.picketPhone = parsed.picketPhone;
+            }
         }
         
-        // Update field di admin panel jika ada
+        // Update field di admin panel
         const hmField = document.getElementById('notif-headmaster-phone');
         const pkField = document.getElementById('notif-picket-phone');
         if (hmField) hmField.value = notifConfig.headmasterPhone;
         if (pkField) pkField.value = notifConfig.picketPhone;
+        
+        // Auto-detect lagi setelah render teachers
+        setTimeout(autoDetectNotifNumbers, 1000);
+        
     } catch (e) {
         console.warn('Gagal load konfigurasi notifikasi:', e);
+        setTimeout(autoDetectNotifNumbers, 1000);
     }
 }
 
-// Simpan konfigurasi notifikasi
+// Simpan konfigurasi notifikasi (dengan auto-detect fallback)
 function saveNotifConfig() {
     const hmField = document.getElementById('notif-headmaster-phone');
     const pkField = document.getElementById('notif-picket-phone');
     
-    if (hmField) notifConfig.headmasterPhone = hmField.value.trim();
-    if (pkField) notifConfig.picketPhone = pkField.value.trim();
+    if (hmField) {
+        const val = hmField.value.trim();
+        notifConfig.headmasterPhone = val || findHeadmasterPhone() || '';
+    }
+    if (pkField) {
+        const val = pkField.value.trim();
+        notifConfig.picketPhone = val || findPicketPhone() || '';
+    }
     
     // Validasi format nomor (harus angka)
-    if (!/^\d+$/.test(notifConfig.headmasterPhone)) {
+    if (notifConfig.headmasterPhone && !/^\d+$/.test(notifConfig.headmasterPhone)) {
         alert('Nomor WhatsApp Kepala Sekolah tidak valid! Harus berupa angka (format: 628xxx)');
         return;
     }
-    if (!/^\d+$/.test(notifConfig.picketPhone)) {
+    if (notifConfig.picketPhone && !/^\d+$/.test(notifConfig.picketPhone)) {
         alert('Nomor WhatsApp Guru Piket tidak valid! Harus berupa angka (format: 628xxx)');
         return;
     }
@@ -1807,6 +1903,72 @@ function exportReportCsv() {
     link.click();
 }
 
+function loadPdfLogos(callback) {
+    // Muat logo untuk PDF: logo.png (kiri), img_smk_bisa.png (kanan)
+    const logoLeft = new Image();
+    const logoRight = new Image();
+    let loaded = 0;
+    const total = 2;
+
+    function onLoad() {
+        loaded++;
+        if (loaded >= total) {
+            callback(logoLeft, logoRight);
+        }
+    }
+
+    logoLeft.onload = onLoad;
+    logoLeft.onerror = onLoad; // tetap lanjut walau gagal load
+    logoRight.onload = onLoad;
+    logoRight.onerror = onLoad;
+
+    logoLeft.src = 'logo.png';
+    logoRight.src = 'img_smk_bisa.png';
+}
+
+function drawPdfHeader(doc, pageWidth, marginLeft, marginRight, yStart, logoLeft, logoRight) {
+    // Gambar logo kiri (logo.png - 60x60mm)
+    if (logoLeft && logoLeft.width > 0) {
+        try {
+            doc.addImage(logoLeft, 'PNG', marginLeft, yStart - 5, 14, 14);
+        } catch (e) {
+            // ignore if image fails
+        }
+    }
+
+    // Gambar logo kanan (img_smk_bisa.png - lebih lebar)
+    if (logoRight && logoRight.width > 0) {
+        try {
+            const rW = 18, rH = 12;
+            doc.addImage(logoRight, 'PNG', pageWidth - marginRight - rW, yStart - 3, rW, rH);
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    let y = yStart;
+    doc.setFont('Times', 'bold');
+    doc.setFontSize(14);
+    doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, y + 2, { align: 'center' });
+    y += 7;
+    doc.setFont('Times', 'normal');
+    doc.setFontSize(9);
+    doc.text('Jl. Padangasri Ds. Mojogeneng Kec. Jatirejo, Mojokerto', pageWidth / 2, y + 2, { align: 'center' });
+    y += 5;
+    doc.text('smk.bidayatulhidayah@gmail.com | smkbidayatulhidayah.sch.id', pageWidth / 2, y + 2, { align: 'center' });
+    y += 5;
+    // Garis pemisah double
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.8);
+    doc.line(marginLeft, y, pageWidth - marginRight, y);
+    y += 1.5;
+    doc.setLineWidth(0.4);
+    doc.line(marginLeft, y, pageWidth - marginRight, y);
+    y += 8;
+
+    return y; // kembalikan posisi y terakhir
+}
+
 function exportReportPdf() {
     const m = document.getElementById("select-report-month").value;
     const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
@@ -1819,87 +1981,421 @@ function exportReportPdf() {
         return;
     }
 
+    // Muat logo dulu, baru generate PDF
+    loadPdfLogos((logoLeft, logoRight) => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageWidth = doc.internal.pageSize.getWidth(); // 210mm
+        const pageHeight = doc.internal.pageSize.getHeight(); // 297mm
+        const marginLeft = 14;
+        const marginRight = 14;
+        const contentWidth = pageWidth - marginLeft - marginRight;
+
+        // ---- WATERMARK (teks transparan di tengah) ----
+        doc.setFont('Times', 'normal');
+        doc.setFontSize(60);
+        doc.setTextColor(200, 200, 200);
+        doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, pageHeight / 2, { align: 'center', angle: -30 });
+        doc.setTextColor(0, 0, 0);
+
+        // ---- HEADER (Kop Surat) ----
+        let y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
+
+        // ---- JUDUL LAPORAN ----
+        doc.setFont('Times', 'bold');
+        doc.setFontSize(13);
+        doc.text('LAPORAN PRESENSI GURU', pageWidth / 2, y, { align: 'center' });
+        y += 6;
+        doc.setFont('Times', 'normal');
+        doc.setFontSize(10);
+        doc.text('Periode: ' + monthLabel, pageWidth / 2, y, { align: 'center' });
+        y += 4;
+        doc.setFont('Times', 'italic');
+        doc.setFontSize(8);
+        doc.text('Dicetak tanggal: ' + printedDate, pageWidth / 2, y, { align: 'center' });
+        y += 8;
+
+        // ---- KETERANGAN PENILAIAN ----
+        doc.setFont('Times', 'bold');
+        doc.setFontSize(9);
+        doc.text('Keterangan Skor:', marginLeft, y);
+        y += 4.5;
+        doc.setFont('Times', 'normal');
+        doc.setFontSize(8);
+        doc.text('90 - 100 = Sangat Baik', marginLeft, y);
+        doc.text('80 - 89  = Baik', marginLeft + 50, y);
+        doc.text('70 - 79  = Cukup', marginLeft + 100, y);
+        doc.text('< 70     = Perlu Perbaikan', marginLeft + 150, y);
+        y += 8;
+
+        // ---- TABEL HEADER ----
+        const colX = {
+            no: marginLeft,
+            nama: marginLeft + 10,
+            hadir: marginLeft + 100,
+            tepat: marginLeft + 125,
+            lambat: marginLeft + 148,
+            izin: marginLeft + 170,
+            skor: marginLeft + 190
+        };
+
+        // Header background
+        doc.setFillColor(220, 220, 220);
+        doc.rect(marginLeft, y - 4, contentWidth, 7, 'F');
+        doc.setFont('Times', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(0, 0, 0);
+        doc.text('No', colX.no + 2, y);
+        doc.text('Nama Guru', colX.nama + 2, y);
+        doc.text('Hadir', colX.hadir, y, { align: 'center' });
+        doc.text('Tepat', colX.tepat, y, { align: 'center' });
+        doc.text('Lambat', colX.lambat, y, { align: 'center' });
+        doc.text('Izin/ Sk', colX.izin, y, { align: 'center' });
+        doc.text('Skor', colX.skor, y, { align: 'center' });
+        y += 8;
+
+        // Garis bawah header
+        doc.setDrawColor(180, 180, 180);
+        doc.setLineWidth(0.3);
+        doc.line(marginLeft, y - 1, pageWidth - marginRight, y - 1);
+
+        // ---- ISI DATA ----
+        const summaryRows = buildReportSummary(m);
+        let pageNum = 1;
+
+        summaryRows.forEach((item, index) => {
+            // Cek apakah perlu halaman baru (sisakan ruang untuk footer)
+            if (y > pageHeight - 30) {
+                doc.setFont('Times', 'italic');
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text('Halaman ' + pageNum, pageWidth / 2, pageHeight - 10, { align: 'center' });
+                doc.addPage();
+                pageNum++;
+
+                // Watermark di halaman baru
+                doc.setFont('Times', 'normal');
+                doc.setFontSize(60);
+                doc.setTextColor(200, 200, 200);
+                doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, pageHeight / 2, { align: 'center', angle: -30 });
+                doc.setTextColor(0, 0, 0);
+
+                y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
+
+                // Tabel header ulang
+                doc.setFillColor(220, 220, 220);
+                doc.rect(marginLeft, y - 4, contentWidth, 7, 'F');
+                doc.setFont('Times', 'bold');
+                doc.setFontSize(8);
+                doc.setTextColor(0, 0, 0);
+                doc.text('No', colX.no + 2, y);
+                doc.text('Nama Guru', colX.nama + 2, y);
+                doc.text('Hadir', colX.hadir, y, { align: 'center' });
+                doc.text('Tepat', colX.tepat, y, { align: 'center' });
+                doc.text('Lambat', colX.lambat, y, { align: 'center' });
+                doc.text('Izin/ Sk', colX.izin, y, { align: 'center' });
+                doc.text('Skor', colX.skor, y, { align: 'center' });
+                y += 8;
+                doc.setDrawColor(180, 180, 180);
+                doc.setLineWidth(0.3);
+                doc.line(marginLeft, y - 1, pageWidth - marginRight, y - 1);
+            }
+
+            // Baris data
+            const skorText = item.skor === '-' ? '-' : item.skor + '/100';
+            const skorVal = item.skor === '-' ? 0 : item.skor;
+            const scoreColor = skorVal >= 90 ? [24, 121, 81] : skorVal >= 80 ? [37, 99, 235] : skorVal >= 70 ? [217, 119, 6] : [185, 28, 28];
+
+            doc.setFont('Times', 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(0, 0, 0);
+            doc.text(String(index + 1), colX.no + 2, y);
+            doc.text(item.teacher.name, colX.nama + 2, y);
+            doc.text(String(item.hadirTotal), colX.hadir, y, { align: 'center' });
+            doc.text(String(item.tepat), colX.tepat, y, { align: 'center' });
+            doc.text(String(item.lambat), colX.lambat, y, { align: 'center' });
+            doc.text(String(item.izinSakit), colX.izin, y, { align: 'center' });
+            doc.setTextColor(scoreColor[0], scoreColor[1], scoreColor[2]);
+            doc.text(skorText, colX.skor, y, { align: 'center' });
+            doc.setTextColor(0, 0, 0);
+
+            // Garis pemisah antar baris
+            y += 5.5;
+            doc.setDrawColor(230, 230, 230);
+            doc.setLineWidth(0.15);
+            doc.line(marginLeft, y - 1.5, pageWidth - marginRight, y - 1.5);
+        });
+
+        y += 12;
+
+        // ---- FOOTER / TANDA TANGAN ----
+        if (y > pageHeight - 35) {
+            doc.setFont('Times', 'italic');
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text('Halaman ' + pageNum, pageWidth / 2, pageHeight - 10, { align: 'center' });
+            doc.addPage();
+            pageNum++;
+            y = 18;
+            // Watermark
+            doc.setFont('Times', 'normal');
+            doc.setFontSize(60);
+            doc.setTextColor(200, 200, 200);
+            doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, pageHeight / 2, { align: 'center', angle: -30 });
+            doc.setTextColor(0, 0, 0);
+        }
+
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.4);
+        doc.line(marginLeft + 5, y, marginLeft + 50, y);
+        doc.setFont('Times', 'normal');
+        doc.setFontSize(9);
+        doc.text('Kepala Sekolah', marginLeft + 5, y + 5);
+        doc.text('SMK Bidayatul Hidayah', marginLeft + 5, y + 10);
+
+        doc.line(pageWidth / 2 - 22, y, pageWidth / 2 + 28, y);
+        doc.text('Kepala Tata Usaha', pageWidth / 2 - 22, y + 5);
+
+        doc.line(pageWidth - marginRight - 50, y, pageWidth - marginRight - 5, y);
+        doc.text('Petugas Piket', pageWidth - marginRight - 50, y + 5);
+
+        y += 18;
+        doc.setFont('Times', 'italic');
+        doc.setFontSize(7);
+        doc.setTextColor(150, 150, 150);
+        doc.text('Dicetak dari sistem presensi guru digital SMK Bidayatul Hidayah - ' + printedDate, pageWidth / 2, y, { align: 'center' });
+
+        // Nomor halaman terakhir
+        doc.setFont('Times', 'italic');
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text('Halaman ' + pageNum, pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+        doc.save('Laporan_Presensi_' + m + '.pdf');
+    });
+}
+
+// ==========================================================================
+// EXPORT PDF LAPORAN IZIN & SAKIT
+// ==========================================================================
+
+function exportIzinSakitPdf() {
+    const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+    const now = new Date();
+    const m = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const monthLabel = monthNames[now.getMonth()] + ' ' + now.getFullYear();
+    const printedDate = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert('Library PDF belum siap. Silakan refresh halaman dan coba lagi.');
+        return;
+    }
+
+    // Filter data izin/sakit bulan ini
+    const izinSakitLogs = state.attendance.filter(a => 
+        (a.type === 'izin' || a.type === 'sakit') && a.date.startsWith(m)
+    ).sort((a, b) => a.date.localeCompare(b.date));
+
+    if (izinSakitLogs.length === 0) {
+        alert('Tidak ada data izin/sakit pada bulan ' + monthLabel);
+        return;
+    }
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
-    let y = 18;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const marginLeft = 14;
+    const marginRight = 14;
+    const contentWidth = pageWidth - marginLeft - marginRight;
 
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, pageWidth, 35, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text('Laporan Presensi Guru', 14, y + 8);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text('Periode: ' + monthLabel, 14, y + 15);
-    doc.text('Sistem Presensi Digital', 14, y + 21);
-
+    // ---- WATERMARK ----
+    doc.setFont('Times', 'normal');
+    doc.setFontSize(60);
+    doc.setTextColor(200, 200, 200);
+    doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, pageHeight / 2, { align: 'center', angle: -30 });
     doc.setTextColor(0, 0, 0);
-    y = 46;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('SMK Bidayatul Hidayah', 14, y);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text('Nama Sekolah', 14, y + 5);
-    doc.text('Dicetak tanggal: ' + printedDate, pageWidth - 54, y + 5);
 
-    y += 12;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('Keterangan Penilaian', 14, y);
-    y += 6;
-    doc.setFont('helvetica', 'normal');
+    // ---- HEADER ----
+    let y = 18;
+    doc.setFont('Times', 'bold');
+    doc.setFontSize(14);
+    doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, y, { align: 'center' });
+    y += 7;
+    doc.setFont('Times', 'normal');
     doc.setFontSize(9);
-    doc.text('90-100 = Sangat Baik', 14, y);
-    doc.text('80-89 = Baik', 56, y);
-    doc.text('70-79 = Cukup', 98, y);
-    doc.text('< 70 = Perlu Perbaikan', 140, y);
+    doc.text('Jl. Padangasri Ds. Mojogeneng Kec. Jatirejo, Mojokerto', pageWidth / 2, y, { align: 'center' });
+    y += 5;
+    doc.text('smk.bidayatulhidayah@gmail.com | smkbidayatulhidayah.sch.id', pageWidth / 2, y, { align: 'center' });
+    y += 5;
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.8);
+    doc.line(marginLeft, y, pageWidth - marginRight, y);
+    y += 1.5;
+    doc.setLineWidth(0.4);
+    doc.line(marginLeft, y, pageWidth - marginRight, y);
     y += 8;
 
-    const summaryRows = buildReportSummary(m);
-    summaryRows.forEach((item, index) => {
-        if (y > 250) { doc.addPage(); y = 18; }
+    // ---- JUDUL ----
+    doc.setFont('Times', 'bold');
+    doc.setFontSize(13);
+    doc.text('LAPORAN IZIN / SAKIT GURU', pageWidth / 2, y, { align: 'center' });
+    y += 6;
+    doc.setFont('Times', 'normal');
+    doc.setFontSize(10);
+    doc.text('Periode: ' + monthLabel, pageWidth / 2, y, { align: 'center' });
+    y += 4;
+    doc.setFont('Times', 'italic');
+    doc.setFontSize(8);
+    doc.text('Dicetak tanggal: ' + printedDate, pageWidth / 2, y, { align: 'center' });
+    y += 8;
 
-        doc.setDrawColor(220, 220, 220);
-        doc.setLineWidth(0.3);
-        doc.roundedRect(12, y - 3, pageWidth - 24, 24, 2, 2, 'S');
+    // ---- TABEL HEADER ----
+    const colX2 = {
+        no: marginLeft,
+        tgl: marginLeft + 10,
+        nama: marginLeft + 40,
+        jenis: marginLeft + 100,
+        jam: marginLeft + 125,
+        keterangan: marginLeft + 148
+    };
 
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.text((index + 1) + '. ' + item.teacher.name, 16, y + 3);
+    doc.setFillColor(220, 220, 220);
+    doc.rect(marginLeft, y - 4, contentWidth, 7, 'F');
+    doc.setFont('Times', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
+    doc.text('No', colX2.no + 2, y);
+    doc.text('Tanggal', colX2.tgl + 2, y);
+    doc.text('Nama Guru', colX2.nama + 2, y);
+    doc.text('Jenis', colX2.jenis, y, { align: 'center' });
+    doc.text('Jam', colX2.jam, y, { align: 'center' });
+    doc.text('Keterangan', colX2.keterangan + 2, y);
+    y += 8;
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.3);
+    doc.line(marginLeft, y - 1, pageWidth - marginRight, y - 1);
 
-        const skorText = item.skor === '-' ? '-' : item.skor + '/100';
-        const scoreColor = item.skor >= 90 ? [24, 121, 81] : item.skor >= 80 ? [37, 99, 235] : item.skor >= 70 ? [217, 119, 6] : [185, 28, 28];
-        doc.setTextColor(...scoreColor);
-        doc.text('Skor: ' + skorText, pageWidth - 44, y + 3);
+    // ---- ISI DATA ----
+    let pageNum = 1;
+
+    izinSakitLogs.forEach((log, index) => {
+        if (y > pageHeight - 30) {
+            doc.setFont('Times', 'italic');
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text('Halaman ' + pageNum, pageWidth / 2, pageHeight - 10, { align: 'center' });
+            doc.addPage();
+            pageNum++;
+            y = 20;
+
+            doc.setFont('Times', 'normal');
+            doc.setFontSize(60);
+            doc.setTextColor(200, 200, 200);
+            doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, pageHeight / 2, { align: 'center', angle: -30 });
+            doc.setTextColor(0, 0, 0);
+
+            doc.setFont('Times', 'bold');
+            doc.setFontSize(14);
+            doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, y, { align: 'center' });
+            y += 7;
+            doc.setFont('Times', 'normal');
+            doc.setFontSize(9);
+            doc.text('Jl. Padangasri Ds. Mojogeneng Kec. Jatirejo, Mojokerto', pageWidth / 2, y, { align: 'center' });
+            y += 5;
+            doc.text('smk.bidayatulhidayah@gmail.com | smkbidayatulhidayah.sch.id', pageWidth / 2, y, { align: 'center' });
+            y += 5;
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.8);
+            doc.line(marginLeft, y, pageWidth - marginRight, y);
+            y += 1.5;
+            doc.setLineWidth(0.4);
+            doc.line(marginLeft, y, pageWidth - marginRight, y);
+            y += 8;
+
+            doc.setFillColor(220, 220, 220);
+            doc.rect(marginLeft, y - 4, contentWidth, 7, 'F');
+            doc.setFont('Times', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(0, 0, 0);
+            doc.text('No', colX2.no + 2, y);
+            doc.text('Tanggal', colX2.tgl + 2, y);
+            doc.text('Nama Guru', colX2.nama + 2, y);
+            doc.text('Jenis', colX2.jenis, y, { align: 'center' });
+            doc.text('Jam', colX2.jam, y, { align: 'center' });
+            doc.text('Keterangan', colX2.keterangan + 2, y);
+            y += 8;
+            doc.setDrawColor(180, 180, 180);
+            doc.setLineWidth(0.3);
+            doc.line(marginLeft, y - 1, pageWidth - marginRight, y - 1);
+        }
+
+        const jenisLabel = log.type === 'sakit' ? 'SAKIT' : 'IZIN';
+        const jamLabel = log.timeIn ? log.timeIn.substring(0, 5) : '-';
+
+        doc.setFont('Times', 'normal');
+        doc.setFontSize(8);
         doc.setTextColor(0, 0, 0);
+        doc.text(String(index + 1), colX2.no + 2, y);
+        doc.text(log.date, colX2.tgl + 2, y);
+        doc.text(log.teacherName || '-', colX2.nama + 2, y);
+        doc.text(jenisLabel, colX2.jenis, y, { align: 'center' });
+        doc.text(jamLabel, colX2.jam, y, { align: 'center' });
+        doc.text(log.keterangan || '-', colX2.keterangan + 2, y);
 
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8.5);
-        doc.text('Hadir ' + item.hadirTotal + ' | Tepat ' + item.tepat + ' | Lambat ' + item.lambat + ' | Izin/Sakit ' + item.izinSakit + ' | Alpa ' + item.alpa, 16, y + 10);
-        doc.text('Penilaian: ' + item.label, 16, y + 16);
-        y += 28;
+        y += 5.5;
+        doc.setDrawColor(230, 230, 230);
+        doc.setLineWidth(0.15);
+        doc.line(marginLeft, y - 1.5, pageWidth - marginRight, y - 1.5);
     });
 
-    y = 270;
-    doc.setDrawColor(180, 180, 180);
-    doc.line(14, y, 70, y);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text('Disetujui oleh', 14, y + 6);
-    doc.text('Kepala Sekolah', 14, y + 12);
+    y += 12;
 
-    doc.line(pageWidth - 70, y, pageWidth - 14, y);
-    doc.text('Admin', pageWidth - 70, y + 6);
-    doc.text('Penanggung Jawab', pageWidth - 70, y + 12);
+    // ---- FOOTER ----
+    if (y > pageHeight - 35) {
+        doc.setFont('Times', 'italic');
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text('Halaman ' + pageNum, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        doc.addPage();
+        pageNum++;
+        y = 20;
+        doc.setFont('Times', 'normal');
+        doc.setFontSize(60);
+        doc.setTextColor(200, 200, 200);
+        doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2, pageHeight / 2, { align: 'center', angle: -30 });
+        doc.setTextColor(0, 0, 0);
+    }
 
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.4);
+    doc.line(marginLeft + 5, y, marginLeft + 50, y);
+    doc.setFont('Times', 'normal');
     doc.setFontSize(9);
-    doc.setTextColor(100, 100, 100);
-    doc.text('Dicetak dari sistem presensi guru digital.', 14, 290);
-    doc.save('Laporan_Presensi_' + m + '.pdf');
+    doc.text('Kepala Sekolah', marginLeft + 5, y + 5);
+    doc.text('SMK Bidayatul Hidayah', marginLeft + 5, y + 10);
+
+    doc.line(pageWidth / 2 - 22, y, pageWidth / 2 + 28, y);
+    doc.text('Kepala Tata Usaha', pageWidth / 2 - 22, y + 5);
+
+    doc.line(pageWidth - marginRight - 50, y, pageWidth - marginRight - 5, y);
+    doc.text('Petugas Piket', pageWidth - marginRight - 50, y + 5);
+
+    y += 18;
+    doc.setFont('Times', 'italic');
+    doc.setFontSize(7);
+    doc.setTextColor(150, 150, 150);
+    doc.text('Dicetak dari sistem presensi guru digital SMK Bidayatul Hidayah - ' + printedDate, pageWidth / 2, y, { align: 'center' });
+
+    doc.setFont('Times', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('Halaman ' + pageNum, pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+    doc.save('Laporan_IzinSakit_' + m + '.pdf');
 }
+
+window.exportIzinSakitPdf = exportIzinSakitPdf;
 
 document.getElementById("btn-export-csv")?.addEventListener("click", exportReportCsv);
 document.getElementById("btn-export-pdf")?.addEventListener("click", exportReportPdf);

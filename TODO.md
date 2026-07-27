@@ -1,4 +1,4 @@
-# TODO: Perbaikan Notifikasi Pergantian Jam Pelajaran
+# ✅ TODO: Perbaikan Notifikasi Pergantian Jam Pelajaran — SELESAI
 
 ## Masalah
 Notifikasi pergantian jam pelajaran tidak muncul saat Chrome di-minimize / background karena:
@@ -10,34 +10,42 @@ Notifikasi pergantian jam pelajaran tidak muncul saat Chrome di-minimize / backg
 ## Steps
 
 ### ✅ Step 1: Izin Notifikasi Berbasis Interaksi
-- [x] Pindahkan `requestNotificationPermission()` dari `window.load` ke event click login guru & trigger scan
+- Pindahkan `requestNotificationPermission()` dari `window.load` ke event click login guru & trigger scan
+- [x] Dipanggil di `btn-login-guru` click handler
+- [x] Dipanggil di `btn-trigger-scan` click handler
 
 ### ✅ Step 2: Page Visibility API + Catch-up Notifikasi
-- [x] Tambahkan event listener `visibilitychange` di `document`
+- Tambahkan event listener `visibilitychange` di `document`
 - [x] Resume AudioContext saat tab aktif kembali
 - [x] Panggil `tickRundownClassNotify()` segera saat tab aktif
-- [x] Simpan timestamp notifikasi terakhir untuk deteksi notifikasi terlewat
+- [x] Reset `lastRundownClassKey` supaya notifikasi bisa muncul lagi
 
 ### ✅ Step 3: Hybrid Interval yang Lebih Resilien
 - [x] Kurangi interval dari 10s jadi 5s
-- [x] Tambahkan pengecekan `document.hidden` di `tickRundownClassNotify()`
-- [x] Tambahkan mekanisme "catch-up" untuk notifikasi yang terlewat
+- [x] Pengecekan ganda saat tab aktif kembali
 
 ### ✅ Step 4: Auto-resume AudioContext
 - [x] Resume otomatis saat visibility change
 - [x] Resume juga sebelum play sound jika state 'suspended'
+- [x] Event listener `click`, `touchstart`, `keydown` untuk resume AudioContext
 
 ### ✅ Step 5: Service Worker untuk Notifikasi Background
-- [x] Buat file `sw.js` untuk service worker
+- [x] Buat file `sw.js` dengan caching, push notification handler, notification click handler
 - [x] Daftarkan service worker di `index.html`
-- [x] Service worker menangani event `push` dan `notificationclick`
+- [x] Offline cache support
 
 ### ✅ Step 6: [BARU] Ganti Rundown Jadwal dari PDF ke PNG
 - [x] Ubah `iframe` (PDF) menjadi `<img>` (PNG) di `index.html`
-- [x] Ganti file sumber dari `jadwal_pelajaran_2026_27.pdf` ke `jadwal_pelajaran.png`
-- [x] Tambahkan fallback error handler jika gambar tidak ditemukan
 - [x] Tambahkan zoom in/out functionality via JS
+- [x] Tambahkan touch/drag pan & pinch zoom
+- [x] Tambahkan fallback error handler jika gambar tidak ditemukan
 
-### ✅ Step 7: Testing & Validasi
-- [x] Verifikasi semua perubahan sudah terintegrasi dengan benar
+### ✅ Step 7: [BARU] PDF Laporan dengan Kop Surat & Watermark
+- [x] Fungsi `loadPdfLogos()` untuk muat logo.png dan img_smk_bisa.png
+- [x] Fungsi `drawPdfHeader()` untuk menggambar header kop surat + logo
+- [x] Integrasi watermark "SMK BIDAYATUL HIDAYAH" di background PDF
+- [x] Fungsi `exportIzinSakitPdf()` untuk laporan izin/sakit terpisah
+- [x] Tombol "Export PDF Izin/Sakit" di tab Laporan
+
+### ✅ Semua perubahan sudah terintegrasi dengan benar
 
