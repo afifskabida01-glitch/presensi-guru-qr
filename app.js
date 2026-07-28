@@ -3,7 +3,7 @@
  * Mengelola sistem sinkronisasi database cloud Firebase Firestore.
  */
 
-const APP_VERSION = "prod-5.0";
+const APP_VERSION = "prod-5.1";
 
 let state = {
     teachers: [],

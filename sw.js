@@ -5,7 +5,7 @@
  * - Caching untuk akses offline
  */
 
-const CACHE_NAME = 'epgskabida-cache-v1';
+const CACHE_NAME = 'epgskabida-cache-v2';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
