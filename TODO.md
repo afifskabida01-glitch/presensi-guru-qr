@@ -25,24 +25,42 @@
 
 ---
 
-# ✅ DONE: Refactor PDF Export - Gunakan `drawWatermark()`, `drawPdfHeader()`, dan `drawPdfFooter()` di `exportIzinSakitPdf()`
+# ✅ DONE: Perbaikan PDF Export - Garis, Nama Petugas Piket, Wrap Teks, Header Kolom
 
 ## Masalah Selesai
-- ✅ Fungsi `exportIzinSakitPdf()` masih menggunakan teks watermark hardcoded (`"SMK BIDAYATUL HIDAYAH"` dengan font size 60) di section page break → **Sekarang menggunakan `drawWatermark()` yang sudah ada**
-- ✅ Header di page break masih hardcoded (kop surat, alamat, email, garis) → **Sekarang menggunakan `drawPdfHeader()` yang sudah ada**
-- ✅ Footer tanda tangan di akhir laporan masih hardcoded (cuma teks "Kepala Sekolah", "Kepala Tata Usaha", "Petugas Piket") → **Sekarang menggunakan `drawPdfFooter()` yang sudah mengambil nama otomatis dari data guru**
+
+### Issue 1: Garis ganda di baris pertama (nomor 1)
+- ✅ Di `exportReportPdf()`: Garis pemisah antar baris data sekarang **skip untuk index 0** (baris pertama) agar tidak double dengan garis header tabel
+- ✅ Di `exportIzinSakitPdf()`: Sama, skip garis untuk index 0
+
+### Issue 2: Nama Petugas Piket tidak otomatis untuk laporan bulan lalu
+- ✅ `findPicketName(dateStr)` — sekarang menerima parameter tanggal, bukan hardcode `new Date()` (hari ini)
+- ✅ `drawPdfFooter(doc, ..., reportDateStr)` — menerima tanggal laporan dan meneruskannya ke `findPicketName()`
+- ✅ `exportReportPdf()` — mengirim `m + '-01'` (tanggal pertama bulan) ke `drawPdfFooter()`
+- ✅ `exportIzinSakitPdf()` — mengirim `m + '-01'` (tanggal pertama bulan) ke `drawPdfFooter()`
+
+### Issue 3: Teks Keterangan tidak wrap di `exportIzinSakitPdf()`
+- ✅ Menggunakan `doc.splitTextToSize()` untuk wrap teks keterangan
+- ✅ Menghitung baris tambahan (`extraLines`) dan menambah tinggi baris sesuai jumlah baris keterangan
+
+### Issue 4: Header kolom "Izin/ Sk"
+- ✅ Diubah menjadi "Izin" (sesuai data yang ditampilkan: jumlah izin/sakit, bukan "Izin/Skor")
 
 ## Perubahan di `app.js`
 
-### 1. Page Break (halaman baru saat data melebihi 1 halaman)
-- **Before:** Teks watermark dengan `doc.setFontSize(60)` + kop surat hardcoded manual
-- **After:** `drawWatermark(doc, pageWidth, pageHeight, watermarkLogo)` + `y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight)`
+### `findPicketName(dateStr)`
+- **Before:** `getDayName(new Date())` — selalu hari ini
+- **After:** `getDayName(targetDate)` — berdasarkan parameter `dateStr`, fallback ke hari ini jika tidak ada
 
-### 2. Footer Tanda Tangan
-- **Before:** `doc.text('Kepala Sekolah', ...)` hardcoded tanpa nama
-- **After:** `drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y)` — otomatis mengambil nama dari data guru (Kepala Sekolah, Kepala TU, Petugas Piket)
+### `drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, reportDateStr)`
+- **Before:** Tidak ada parameter `reportDateStr`
+- **After:** Menerima `reportDateStr` dan meneruskannya ke `findPicketName()`
 
-### 3. Page Break Footer (jika footer butuh halaman baru)
-- **Before:** Teks watermark hardcoded dengan `doc.setFontSize(60)`
-- **After:** `drawWatermark(doc, pageWidth, pageHeight, watermarkLogo)`
+### `exportReportPdf()` — data loop
+- **Before:** Garis untuk semua baris termasuk index 0
+- **After:** `if (index > 0) { doc.line(...) }` — skip baris pertama
+
+### `exportIzinSakitPdf()` — data loop
+- **Before:** `doc.text(log.keterangan || '-', ...)` langsung tanpa wrap
+- **After:** `doc.splitTextToSize()` + hitung `extraLines` + `if (index > 0)` untuk garis pemisah
 

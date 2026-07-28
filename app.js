@@ -2077,14 +2077,16 @@ function exportReportPdf() {
         y += 8;
 
         // ---- TABEL HEADER ----
+        // Total content width = 182mm (210 - 14 - 14)
+        // Layout: No(8) + Nama(85) + Hadir(16) + Tepat(16) + Lambat(16) + Izin(16) + Skor(25) = 182mm
         const colX = {
             no: marginLeft,
-            nama: marginLeft + 10,
-            hadir: marginLeft + 100,
-            tepat: marginLeft + 125,
-            lambat: marginLeft + 148,
-            izin: marginLeft + 170,
-            skor: marginLeft + 190
+            nama: marginLeft + 8,
+            hadir: marginLeft + 93,
+            tepat: marginLeft + 109,
+            lambat: marginLeft + 125,
+            izin: marginLeft + 141,
+            skor: marginLeft + 157
         };
 
         // Header background
@@ -2098,7 +2100,7 @@ function exportReportPdf() {
         doc.text('Hadir', colX.hadir, y, { align: 'center' });
         doc.text('Tepat', colX.tepat, y, { align: 'center' });
         doc.text('Lambat', colX.lambat, y, { align: 'center' });
-        doc.text('Izin/ Sk', colX.izin, y, { align: 'center' });
+        doc.text('Izin', colX.izin, y, { align: 'center' });
         doc.text('Skor', colX.skor, y, { align: 'center' });
         y += 8;
 
@@ -2137,7 +2139,7 @@ function exportReportPdf() {
                 doc.text('Hadir', colX.hadir, y, { align: 'center' });
                 doc.text('Tepat', colX.tepat, y, { align: 'center' });
                 doc.text('Lambat', colX.lambat, y, { align: 'center' });
-                doc.text('Izin/ Sk', colX.izin, y, { align: 'center' });
+                doc.text('Izin', colX.izin, y, { align: 'center' });
                 doc.text('Skor', colX.skor, y, { align: 'center' });
                 y += 8;
                 doc.setDrawColor(180, 180, 180);
@@ -2327,13 +2329,15 @@ function exportIzinSakitPdf() {
     y += 8;
 
     // ---- TABEL HEADER ----
+    // Total content width = 182mm (210 - 14 - 14)
+    // Layout: No(8) + Tanggal(25) + Nama(55) + Jenis(14) + Jam(14) + Keterangan(66) = 182mm
     const colX2 = {
         no: marginLeft,
-        tgl: marginLeft + 10,
-        nama: marginLeft + 40,
-        jenis: marginLeft + 100,
-        jam: marginLeft + 125,
-        keterangan: marginLeft + 148
+        tgl: marginLeft + 8,
+        nama: marginLeft + 33,
+        jenis: marginLeft + 88,
+        jam: marginLeft + 102,
+        keterangan: marginLeft + 116
     };
 
     doc.setFillColor(220, 220, 220);
