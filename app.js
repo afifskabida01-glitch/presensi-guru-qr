@@ -2163,16 +2163,18 @@ function exportReportPdf() {
             doc.text(skorText, colX.skor, y, { align: 'center' });
             doc.setTextColor(0, 0, 0);
 
-            // Garis pemisah antar baris
+            // Garis pemisah antar baris (skip baris pertama agar tidak double dengan garis header)
             y += 5.5;
-            doc.setDrawColor(230, 230, 230);
-            doc.setLineWidth(0.15);
-            doc.line(marginLeft, y - 1.5, pageWidth - marginRight, y - 1.5);
+            if (index > 0) {
+                doc.setDrawColor(230, 230, 230);
+                doc.setLineWidth(0.15);
+                doc.line(marginLeft, y - 1.5, pageWidth - marginRight, y - 1.5);
+            }
         });
 
         y += 12;
 
-        // ---- FOOTER / TANDA TANGAN ---- (dengan watermark & header otomatis)
+    // ---- FOOTER / TANDA TANGAN ---- (dengan watermark & header otomatis)
         if (y > pageHeight - 35) {
             doc.setFont('Times', 'italic');
             doc.setFontSize(8);
@@ -2187,7 +2189,9 @@ function exportReportPdf() {
         }
 
         // Gunakan drawPdfFooter yang sudah mengambil nama otomatis dari data guru
-        drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y);
+        // Kirim tanggal pertama bulan laporan untuk mencari petugas piket yang sesuai
+        const firstDayOfMonth = m + '-01';
+        drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, firstDayOfMonth);
 
         y += 18;
         doc.setFont('Times', 'italic');
@@ -2224,19 +2228,20 @@ function findTUName() {
     return name || 'Kepala Tata Usaha';
 }
 
-// Helper: cari nama Petugas Piket hari ini
-function findPicketName() {
+// Helper: cari nama Petugas Piket berdasarkan tanggal tertentu
+function findPicketName(dateStr) {
     if (!state.teachers || state.teachers.length === 0) return 'Petugas Piket';
-    const todayName = getDayName(new Date());
-    const t = state.teachers.find(t => t.picketDay === todayName && t.name);
+    const targetDate = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
+    const dayName = getDayName(targetDate);
+    const t = state.teachers.find(t => t.picketDay === dayName && t.name);
     return t ? t.name : 'Petugas Piket';
 }
 
 // Helper: draw footer tanda tangan dengan nama otomatis dari data guru
-function drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y) {
+function drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, reportDateStr) {
     const headmasterName = findHeadmasterName();
     const tuName = findTUName();
-    const picketName = findPicketName();
+    const picketName = findPicketName(reportDateStr);
 
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.4);
@@ -2394,12 +2399,24 @@ function exportIzinSakitPdf() {
         doc.text(log.teacherName || '-', colX2.nama + 2, y);
         doc.text(jenisLabel, colX2.jenis, y, { align: 'center' });
         doc.text(jamLabel, colX2.jam, y, { align: 'center' });
-        doc.text(log.keterangan || '-', colX2.keterangan + 2, y);
 
-        y += 5.5;
-        doc.setDrawColor(230, 230, 230);
-        doc.setLineWidth(0.15);
-        doc.line(marginLeft, y - 1.5, pageWidth - marginRight, y - 1.5);
+        // Wrap teks keterangan agar tidak overflow
+        const ketText = log.keterangan || '-';
+        const ketMaxWidth = pageWidth - marginRight - colX2.keterangan - 4;
+        const ketLines = doc.splitTextToSize(ketText, ketMaxWidth);
+        doc.text(ketLines, colX2.keterangan + 2, y);
+
+        // Hitung tinggi baris berdasarkan jumlah baris keterangan
+        const lineHeight = 4.5;
+        const extraLines = ketLines.length - 1;
+        y += 5.5 + (extraLines * lineHeight);
+        
+        // Garis pemisah antar baris (skip untuk baris pertama agar tidak double dengan garis header)
+        if (index > 0) {
+            doc.setDrawColor(230, 230, 230);
+            doc.setLineWidth(0.15);
+            doc.line(marginLeft, y - 1.5, pageWidth - marginRight, y - 1.5);
+        }
     });
 
     y += 12;
@@ -2417,7 +2434,9 @@ function exportIzinSakitPdf() {
         y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);
     }
 
-    drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y);
+    // Kirim tanggal pertama bulan laporan untuk mencari petugas piket yang sesuai
+    const firstDayOfMonth = m + '-01';
+    drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, firstDayOfMonth);
 
     y += 18;
     doc.setFont('Times', 'italic');
