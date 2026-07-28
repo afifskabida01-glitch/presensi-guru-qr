@@ -1,9 +1,9 @@
-/**
+﻿/**
  * QRPresensi - Application Logic (Phase 4 - Firebase Realtime Sync)
  * Mengelola sistem sinkronisasi database cloud Firebase Firestore.
  */
 
-const APP_VERSION = "prod-5.1";
+const APP_VERSION = "prod-5.2";
 
 let state = {
     teachers: [],
@@ -18,6 +18,9 @@ let db = null;
 let qrHelper = null;
 let lastRenderedToken = "";
 let isFirebaseActive = false;
+let automaticAlpaRunning = false;
+let teachersLoaded = false;
+let attendanceLoaded = false;
 
 // ==========================================================================
 // FIREBASE INIT & SYNC
@@ -59,8 +62,10 @@ function setupFirebaseListeners() {
     db.collection("teachers").onSnapshot((snapshot) => {
         state.teachers = [];
         snapshot.forEach((doc) => state.teachers.push(doc.data()));
+        teachersLoaded = true;
         if (!currentUser) renderLoginDropdown();
         triggerAdminRender();
+        scheduleAutomaticPicketAlpa();
     });
 
     db.collection("schedules").onSnapshot((snapshot) => {
@@ -72,6 +77,8 @@ function setupFirebaseListeners() {
     db.collection("attendance").onSnapshot((snapshot) => {
         state.attendance = [];
         snapshot.forEach((doc) => state.attendance.push(doc.data()));
+        attendanceLoaded = true;
+        scheduleAutomaticPicketAlpa();
         triggerAdminRender();
         if (currentUser && currentUser.role === 'guru') {
             updateGuruStatusAndBtn();
@@ -140,6 +147,7 @@ function setupLocalStorageFallback() {
     state.schedules = JSON.parse(localStorage.getItem('qr_presensi_schedules')) || [];
     state.attendance = JSON.parse(localStorage.getItem('qr_presensi_attendance')) || [];
     state.admins = JSON.parse(localStorage.getItem('qr_presensi_admins')) || [{ id: "admin1", username: "admin", password: "123", role: "superadmin" }];
+    scheduleAutomaticPicketAlpa();
 }
 
 window.resetDatabaseLocal = function() {
@@ -169,6 +177,51 @@ function getTodayDateStr() {
     return `${year}-${month}-${day}`;
 }
 
+function formatDateStr(dateObj) {
+    const d = new Date(dateObj);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function isPicketScheduled(teacher, dayName) {
+    return teacher && (teacher.picketDay === 'Setiap Hari' || teacher.picketDay === dayName);
+}
+
+function scheduleAutomaticPicketAlpa() {
+    if (isFirebaseActive && (!teachersLoaded || !attendanceLoaded)) return;
+    setTimeout(syncMissedPicketAbsences, 300);
+}
+
+async function syncMissedPicketAbsences() {
+    if (automaticAlpaRunning || !state.teachers.length) return;
+    automaticAlpaRunning = true;
+    try {
+        // Dibuat untuk hari kemarin, setelah guru memiliki satu hari penuh untuk absen.
+        const yesterday = new Date();
+        yesterday.setHours(0, 0, 0, 0);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const date = formatDateStr(yesterday);
+        const dayName = getDayName(yesterday);
+        const missingPicketTeachers = state.teachers.filter(teacher =>
+            isPicketScheduled(teacher, dayName) &&
+            !state.attendance.some(log => log.teacherId === teacher.id && log.date === date)
+        );
+
+        await Promise.all(missingPicketTeachers.map(teacher => saveData('attendance', `alpa-${teacher.id}-${date}`, {
+            id: `alpa-${teacher.id}-${date}`,
+            teacherId: teacher.id,
+            teacherName: teacher.name,
+            date,
+            timeIn: '-', timeOut: '-', statusIn: '-', type: 'alpa',
+            keterangan: 'Otomatis alpa: melewati jadwal piket tanpa presensi.',
+            acuanJam: teacher.picketCheckIn || '06:45', acuanMapel: 'Guru Piket'
+        })));
+    } catch (error) {
+        console.error('Gagal membuat alpa otomatis guru piket:', error);
+    } finally {
+        automaticAlpaRunning = false;
+    }
+}
+
 function getAcuanHadir(teacher, dateObj) {
     if(!teacher) return { jam: "-", mapel: "Tidak Wajib Hadir", wajibHadir: false };
     
@@ -184,7 +237,7 @@ function getAcuanHadir(teacher, dateObj) {
         };
     }
 
-    if (teacher.picketDay === dayName) {
+    if (isPicketScheduled(teacher, dayName)) {
         return {
             jam: teacher.picketCheckIn || "06:45",
             mapel: "Guru Piket",
@@ -354,7 +407,7 @@ function initGuruView() {
     const schedule = state.schedules.find(s => s.teacherId === t.id && s.day === dayName);
     
     let schHtml = "";
-    if (t.picketDay === dayName) {
+    if (isPicketScheduled(t, dayName)) {
         schHtml += `<div class="sim-sched-item"><div class="time">${t.picketCheckIn || '06:45'}</div><div class="detail">Guru Piket</div></div>`;
     }
     if (schedule && schedule.entries.length > 0) {
@@ -784,7 +837,7 @@ function getTodayEntriesForGuru(teacher, dayName) {
     if (schedule && Array.isArray(schedule.entries)) {
         entries = [...schedule.entries];
     }
-    if (teacher?.picketDay === dayName) {
+    if (isPicketScheduled(teacher, dayName)) {
         entries.push({ jamMulai: teacher.picketCheckIn || '06:45', mapel: 'Guru Piket', kelas: '' });
     }
     entries.sort((a, b) => (a.jamMulai || '00:00').localeCompare(b.jamMulai || '00:00'));
@@ -1166,7 +1219,7 @@ function findPicketPhones() {
     const todayName = getDayName(new Date());
     // Cari semua guru yang piket hari ini dan punya nomor HP
     const picketTeachers = state.teachers.filter(t => 
-        t.picketDay === todayName && t.noHp && t.noHp.trim()
+        isPicketScheduled(t, todayName) && t.noHp && t.noHp.trim()
     );
     // Urutkan: Guru Piket yang punya jadwal datang/piketCheckIn lebih awal lebih dulu
     picketTeachers.sort((a, b) => (a.picketCheckIn || '12:00').localeCompare(b.picketCheckIn || '12:00'));
@@ -1579,7 +1632,7 @@ function populateJadwalGrid() {
         if (sch && sch.entries && sch.entries.length > 0) {
             entries = [...sch.entries];
         }
-        if (t?.picketDay === day) {
+        if (isPicketScheduled(t, day)) {
             entries.push({ jamMulai: t.picketCheckIn || '06:45', jamSelesai: '', mapel: 'Guru Piket', kelas: '' });
         }
 
@@ -1925,9 +1978,14 @@ function drawWatermark(doc, pageWidth, pageHeight, watermarkLogo) {
             const wmX = (pageWidth - wmSize) / 2;
             const wmY = (pageHeight - wmSize) / 2;
             // Opacity: dengan alpha PNG atau dengan opacity setting
-            doc.setGState(new doc.GState({ opacity: 0.12 }));
-            doc.addImage(watermarkLogo, 'PNG', wmX, wmY, wmSize, wmSize);
-            doc.setGState(new doc.GState({ opacity: 1 }));
+            const GStateClass = (typeof jsPDF !== 'undefined' && jsPDF.GState) ? jsPDF.GState : (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.GState ? window.jspdf.jsPDF.GState : null);
+            if (GStateClass) {
+                doc.setGState(new GStateClass({ opacity: 0.12 }));
+                doc.addImage(watermarkLogo, 'PNG', wmX, wmY, wmSize, wmSize);
+                doc.setGState(new GStateClass({ opacity: 1 }));
+            } else {
+                doc.addImage(watermarkLogo, 'PNG', wmX, wmY, wmSize, wmSize);
+            }
         } catch (e) {
             // Fallback ke teks jika gambar gagal
             doc.setFont('Times', 'normal');
@@ -2222,8 +2280,36 @@ function findPicketName(dateStr) {
     if (!state.teachers || state.teachers.length === 0) return 'Petugas Piket';
     const targetDate = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
     const dayName = getDayName(targetDate);
-    const t = state.teachers.find(t => t.picketDay === dayName && t.name);
+    const t = state.teachers.find(t => isPicketScheduled(t, dayName) && t.name);
     return t ? t.name : 'Petugas Piket';
+}
+
+function findPicketTeachers(dateStr) {
+    const targetDate = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
+    const dayName = getDayName(targetDate);
+    return state.teachers
+        .filter(teacher => isPicketScheduled(teacher, dayName) && teacher.name)
+        .sort((a, b) => (a.picketCheckIn || '12:00').localeCompare(b.picketCheckIn || '12:00'))
+        .slice(0, 2);
+}
+
+function drawPicketFooter(doc, pageWidth, marginLeft, marginRight, y, reportDateStr) {
+    const pickets = findPicketTeachers(reportDateStr);
+    const printedDate = new Date(reportDateStr + 'T00:00:00').toLocaleDateString('id-ID', {
+        day: 'numeric', month: 'long', year: 'numeric'
+    });
+    const leftX = marginLeft + 45;
+    const rightX = pageWidth - marginRight - 45;
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text('Mojokerto, ' + printedDate, pageWidth - marginRight, y, { align: 'right' });
+    doc.text('Guru Piket 1', leftX, y + 15, { align: 'center' });
+    doc.text('Guru Piket 2', rightX, y + 15, { align: 'center' });
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text(pickets[0]?.name || 'Belum dijadwalkan', leftX, y + 40, { align: 'center' });
+    doc.text(pickets[1]?.name || 'Belum dijadwalkan', rightX, y + 40, { align: 'center' });
 }
 
 // Helper: draw footer tanda tangan dengan nama otomatis dari data guru
@@ -2306,39 +2392,52 @@ function exportIzinSakitPdf() {
     doc.text('Dicetak tanggal: ' + printedDate, pageWidth / 2, y, { align: 'center' });
     y += 8;
 
-    // ---- TABEL HEADER ----
-    // Total content width = 182mm (210 - 14 - 14)
-    // Layout: No(8) + Tanggal(25) + Nama(55) + Jenis(14) + Jam(14) + Keterangan(66) = 182mm
+    // ---- TABEL IZIN / SAKIT ----
+    // Setiap kolom diberi grid dan keterangan dibatasi agar tidak keluar tabel.
     const colX2 = {
         no: marginLeft,
         tgl: marginLeft + 8,
-        nama: marginLeft + 33,
-        jenis: marginLeft + 88,
-        jam: marginLeft + 102,
-        keterangan: marginLeft + 116
+        nama: marginLeft + 31,
+        jenis: marginLeft + 80,
+        jam: marginLeft + 99,
+        keterangan: marginLeft + 117
     };
-
-    doc.setFillColor(220, 220, 220);
-    doc.rect(marginLeft, y - 4, contentWidth, 7, 'F');
-    doc.setFont('Times', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(0, 0, 0);
-    doc.text('No', colX2.no + 2, y);
-    doc.text('Tanggal', colX2.tgl + 2, y);
-    doc.text('Nama Guru', colX2.nama + 2, y);
-    doc.text('Jenis', colX2.jenis, y, { align: 'center' });
-    doc.text('Jam', colX2.jam, y, { align: 'center' });
-    doc.text('Keterangan', colX2.keterangan + 2, y);
-    y += 8;
-    doc.setDrawColor(180, 180, 180);
-    doc.setLineWidth(0.3);
-    doc.line(marginLeft, y - 1, pageWidth - marginRight, y - 1);
+    const tableBorders2 = [marginLeft + 8, marginLeft + 31, marginLeft + 80, marginLeft + 99, marginLeft + 117];
+    const drawGrid2 = (top, bottom) => {
+        doc.setDrawColor(65, 65, 65);
+        doc.setLineWidth(0.2);
+        tableBorders2.forEach(x => doc.line(x, top, x, bottom));
+    };
+    const drawTableHeader2 = () => {
+        doc.setFillColor(204, 204, 204);
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.3);
+        doc.rect(marginLeft, y - 4.8, contentWidth, 7, 'FD');
+        drawGrid2(y - 4.8, y + 2.2);
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(0, 0, 0);
+        doc.text('No', colX2.no + 2, y);
+        doc.text('Tanggal', colX2.tgl + 2, y);
+        doc.text('Nama Guru', colX2.nama + 2, y);
+        doc.text('Jenis', colX2.jenis + 2, y);
+        doc.text('Jam', colX2.jam + 2, y);
+        doc.text('Keterangan', colX2.keterangan + 2, y);
+        y += 7;
+    };
+    drawTableHeader2();
 
     // ---- ISI DATA ----
     let pageNum = 1;
 
     izinSakitLogs.forEach((log, index) => {
-        if (y > pageHeight - 30) {
+        const ketText = log.keterangan || '-';
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(7.5);
+        const ketLines = doc.splitTextToSize(ketText, 58).slice(0, 3);
+        const rowHeight = Math.max(7, 5.4 + ((ketLines.length - 1) * 3.6));
+
+        if (y + rowHeight > pageHeight - 58) {
             doc.setFont('Times', 'italic');
             doc.setFontSize(8);
             doc.setTextColor(150, 150, 150);
@@ -2353,52 +2452,26 @@ function exportIzinSakitPdf() {
             // Header ulang
             y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);
 
-            doc.setFillColor(220, 220, 220);
-            doc.rect(marginLeft, y - 4, contentWidth, 7, 'F');
-            doc.setFont('Times', 'bold');
-            doc.setFontSize(8);
-            doc.setTextColor(0, 0, 0);
-            doc.text('No', colX2.no + 2, y);
-            doc.text('Tanggal', colX2.tgl + 2, y);
-            doc.text('Nama Guru', colX2.nama + 2, y);
-            doc.text('Jenis', colX2.jenis, y, { align: 'center' });
-            doc.text('Jam', colX2.jam, y, { align: 'center' });
-            doc.text('Keterangan', colX2.keterangan + 2, y);
-            y += 8;
-            doc.setDrawColor(180, 180, 180);
-            doc.setLineWidth(0.3);
-            doc.line(marginLeft, y - 1, pageWidth - marginRight, y - 1);
+            drawTableHeader2();
         }
 
         const jenisLabel = log.type === 'sakit' ? 'SAKIT' : 'IZIN';
         const jamLabel = log.timeIn ? log.timeIn.substring(0, 5) : '-';
 
-        doc.setFont('Times', 'normal');
-        doc.setFontSize(8);
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(7.5);
         doc.setTextColor(0, 0, 0);
+        doc.setDrawColor(65, 65, 65);
+        doc.setLineWidth(0.2);
+        doc.rect(marginLeft, y - 4.8, contentWidth, rowHeight, 'S');
+        drawGrid2(y - 4.8, y - 4.8 + rowHeight);
         doc.text(String(index + 1), colX2.no + 2, y);
         doc.text(log.date, colX2.tgl + 2, y);
-        doc.text(log.teacherName || '-', colX2.nama + 2, y);
-        doc.text(jenisLabel, colX2.jenis, y, { align: 'center' });
-        doc.text(jamLabel, colX2.jam, y, { align: 'center' });
-
-        // Wrap teks keterangan agar tidak overflow
-        const ketText = log.keterangan || '-';
-        const ketMaxWidth = pageWidth - marginRight - colX2.keterangan - 4;
-        const ketLines = doc.splitTextToSize(ketText, ketMaxWidth);
+        doc.text(doc.splitTextToSize(log.teacherName || '-', 45)[0], colX2.nama + 2, y);
+        doc.text(jenisLabel, colX2.jenis + 2, y);
+        doc.text(jamLabel, colX2.jam + 2, y);
         doc.text(ketLines, colX2.keterangan + 2, y);
-
-        // Hitung tinggi baris berdasarkan jumlah baris keterangan
-        const lineHeight = 4.5;
-        const extraLines = ketLines.length - 1;
-        y += 5.5 + (extraLines * lineHeight);
-        
-        // Garis pemisah antar baris (skip untuk baris pertama agar tidak double dengan garis header)
-        if (index > 0) {
-            doc.setDrawColor(230, 230, 230);
-            doc.setLineWidth(0.15);
-            doc.line(marginLeft, y - 1.5, pageWidth - marginRight, y - 1.5);
-        }
+        y += rowHeight;
     });
 
     y += 12;
@@ -2416,9 +2489,9 @@ function exportIzinSakitPdf() {
         y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);
     }
 
-    // Kirim tanggal pertama bulan laporan untuk mencari petugas piket yang sesuai
-    const firstDayOfMonth = m + '-01';
-    drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, firstDayOfMonth);
+    // TTD mengikuti dua guru piket pada tanggal data izin/sakit yang dicetak.
+    const picketDate = izinSakitLogs[0]?.date || (m + '-01');
+    drawPicketFooter(doc, pageWidth, marginLeft, marginRight, y, picketDate);
 
     y += 48;
     doc.setFont('Times', 'italic');

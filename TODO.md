@@ -81,3 +81,37 @@
 - Tampilan halaman aplikasi, data presensi, CSV, dan laporan di dashboard tidak diubah.
 - Template TTD dua pihak juga dipakai oleh Export PDF Izin/Sakit karena keduanya menggunakan fungsi footer PDF yang sama.
 
+---
+
+# DONE: Piket Setiap Hari, Alpa Otomatis, dan PDF Izin/Sakit
+
+- Opsi `Setiap Hari` ditambahkan pada Hari Piket guru.
+- Guru piket yang belum mempunyai presensi pada hari sebelumnya otomatis dicatat sebagai `Alpa` ketika aplikasi tersinkron.
+- Log alpa otomatis hanya dibuat untuk guru yang memang terjadwal piket dan tidak menimpa presensi yang sudah ada.
+- PDF Izin/Sakit memakai grid tabel penuh, tinggi baris dinamis, serta keterangan yang dibatasi maksimal tiga baris agar tetap berada di dalam sel.
+- TTD PDF Izin/Sakit otomatis memuat dua guru piket berdasarkan hari dari data izin/sakit yang dicetak.
+
+
+---
+
+# ✅ DONE: Bug Fix - Field Password Admin & GState Watermark
+
+## Bug 1: Field Password Hilang di Modal Tambah Admin
+
+**Masalah:** Modal "Tambah Admin" di index.html hanya memiliki field username, tetapi handler submit di app.js membaca document.getElementById("new-admin-pass").value yang menyebabkan TypeError (null).
+
+**Perbaikan:** Ditambahkan field password di modal admin.
+
+### File diubah
+- index.html — Field password ditambahkan di dmin-account-modal
+
+---
+
+## Bug 2: Runtime Error doc.GState di drawWatermark
+
+**Masalah:** doc.setGState(new doc.GState({...})) menyebabkan TypeError karena doc.GState tidak tersedia di jsPDF UMD.
+
+**Perbaikan:** Menggunakan class reference dari jsPDF.GState atau window.jspdf.jsPDF.GState dengan fallback.
+
+### File diubah
+- pp.js — Fungsi drawWatermark() diperbaiki dengan fallback jika GState tidak tersedia

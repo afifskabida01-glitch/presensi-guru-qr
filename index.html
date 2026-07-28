@@ -160,7 +160,7 @@
                     <p class="scanner-tip">Arahkan kamera ke QR Code di layar Admin</p>
                 </div>
                 <!-- Status pesan saat QR terdeteksi -->
-                <div id="scan-result-toast" class="scan-result-toast hidden">✅ QR Terdeteksi!</div>
+                <div id="scan-result-toast" class="scan-result-toast hidden">âœ… QR Terdeteksi!</div>
             </div>
         </div>
 
@@ -210,8 +210,8 @@
                 <div class="form-group">
                     <label style="font-size:12px; color:var(--text-secondary);">Jenis Ketidakhadiran</label>
                     <select id="izin-type" style="background:#171b26; color:white; border:1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px; font-family:inherit; font-size:14px; width:100%;">
-                        <option value="izin">📋 Izin (ada keperluan)</option>
-                        <option value="sakit">🤒 Sakit</option>
+                        <option value="izin">ðŸ“‹ Izin (ada keperluan)</option>
+                        <option value="sakit">ðŸ¤’ Sakit</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -231,7 +231,7 @@
                     <i class="fa-solid fa-bell"></i>
                 </div>
                 <div class="class-change-content">
-                    <p class="class-change-label">🔄 Ganti Jam Pelajaran</p>
+                    <p class="class-change-label">ðŸ”„ Ganti Jam Pelajaran</p>
                     <h3 class="class-change-mapel" id="cc-mapel">-</h3>
                     <p class="class-change-detail" id="cc-detail">-</p>
                     <div class="class-change-timer" id="cc-timer">
@@ -445,7 +445,7 @@
                         </p>
                         <div style="display: flex; flex-direction: column; gap: 12px;">
                             <div class="form-group" style="margin: 0;">
-                                <label style="font-size: 13px;">📞 Nomor WhatsApp Kepala Sekolah <span style="color: var(--color-info); font-size: 11px;">(Otomatis dari data guru - tidak bisa diubah)</span></label>
+                                <label style="font-size: 13px;">ðŸ“ž Nomor WhatsApp Kepala Sekolah <span style="color: var(--color-info); font-size: 11px;">(Otomatis dari data guru - tidak bisa diubah)</span></label>
                                 <div style="display: flex; gap: 8px;">
                                     <input type="text" id="notif-headmaster-phone" class="login-input" placeholder="Otomatis dari data guru..." style="flex: 1; opacity: 0.7;" readonly disabled>
                                     <button class="btn btn-secondary" onclick="refreshHeadmasterPhone()" style="padding: 8px 16px; white-space: nowrap;" title="Perbarui dari data guru"><i class="fa-solid fa-rotate"></i> Refresh</button>
@@ -453,14 +453,14 @@
                                 <small style="color: var(--text-muted); font-size: 11px;">Nomor Kepala Sekolah diambil otomatis dari data guru dengan jabatan "Kepala Sekolah".</small>
                             </div>
                             <div class="form-group" style="margin: 0;">
-                                <label style="font-size: 13px;">📞 Nomor WhatsApp Guru Piket 1</label>
+                                <label style="font-size: 13px;">ðŸ“ž Nomor WhatsApp Guru Piket 1</label>
                                 <div style="display: flex; gap: 8px;">
                                     <input type="text" id="notif-picket-phone-1" class="login-input" placeholder="Cth: 6281234567890" style="flex: 1;">
                                 </div>
                                 <small style="color: var(--text-muted); font-size: 11px;">Gunakan format internasional (628xxx). Akan terisi otomatis dari guru piket hari ini.</small>
                             </div>
                             <div class="form-group" style="margin: 0;">
-                                <label style="font-size: 13px;">📞 Nomor WhatsApp Guru Piket 2</label>
+                                <label style="font-size: 13px;">ðŸ“ž Nomor WhatsApp Guru Piket 2</label>
                                 <div style="display: flex; gap: 8px;">
                                     <input type="text" id="notif-picket-phone-2" class="login-input" placeholder="Cth: 6281234567890" style="flex: 1;">
                                 </div>
@@ -500,7 +500,7 @@
                         <label>Bulan:</label><select id="select-report-month"></select>
                     </div>
                     <div class="glass-card" style="padding:12px 16px; margin-bottom:12px; font-size:13px; color:var(--text-secondary);">
-                        <strong>Keterangan Skor:</strong> 90–100 = Sangat Baik, 80–89 = Baik, 70–79 = Cukup, di bawah 70 = Perlu Perbaikan.
+                        <strong>Keterangan Skor:</strong> 90â€“100 = Sangat Baik, 80â€“89 = Baik, 70â€“79 = Cukup, di bawah 70 = Perlu Perbaikan.
                     </div>
                     <div class="table-container glass-card">
                         <table class="data-table">
@@ -534,7 +534,7 @@
                         <small style="color: var(--text-muted); font-size: 11px;">Gunakan format 08xxx (contoh: 08123456789)</small>
                     </div>
                     <div class="form-row">
-                        <div class="form-group"><label>Hari Piket</label><select id="teacher-picket"><option value="Tidak Ada">Tidak Ada</option><option value="Minggu">Minggu</option><option value="Senin">Senin</option><option value="Selasa">Selasa</option><option value="Rabu">Rabu</option><option value="Kamis">Kamis</option><option value="Jumat">Jumat</option><option value="Sabtu">Sabtu</option></select></div>
+                        <div class="form-group"><label>Hari Piket</label><select id="teacher-picket"><option value="Tidak Ada">Tidak Ada</option><option value="Setiap Hari">Setiap Hari</option><option value="Minggu">Minggu</option><option value="Senin">Senin</option><option value="Selasa">Selasa</option><option value="Rabu">Rabu</option><option value="Kamis">Kamis</option><option value="Jumat">Jumat</option><option value="Sabtu">Sabtu</option></select></div>
                         <div class="form-group"><label>Jam Piket</label><input type="time" id="teacher-checkin" value="07:00"></div>
                     </div>
                 </div>
@@ -591,6 +591,7 @@
             <form id="form-admin-account">
                 <div class="modal-body">
                     <div class="form-group"><label>Username</label><input type="text" id="new-admin-user" required></div>
+                    <div class="form-group"><label>Password</label><input type="password" id="new-admin-pass" required></div>
                 </div>
                 <div class="modal-footer"><button type="submit" class="btn btn-primary">Tambah</button></div>
             </form>
@@ -610,7 +611,7 @@
     <!-- jsQR Scanner (untuk kamera HP Guru) -->
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
     
-    <script src="app.js?v=5.1"></script>
+    <script src="app.js?v=5.2"></script>
     
     <!-- Service Worker Registration -->
     <script>
@@ -626,3 +627,4 @@
     </script>
 </body>
 </html>
+
