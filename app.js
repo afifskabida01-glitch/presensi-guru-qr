@@ -2050,73 +2050,61 @@ function exportReportPdf() {
         let y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
 
         // ---- JUDUL LAPORAN ----
-        doc.setFont('Times', 'bold');
+        doc.setFont('Helvetica', 'bold');
         doc.setFontSize(13);
         doc.text('LAPORAN PRESENSI GURU', pageWidth / 2, y, { align: 'center' });
         y += 6;
-        doc.setFont('Times', 'normal');
+        doc.setFont('Helvetica', 'normal');
         doc.setFontSize(10);
         doc.text('Periode: ' + monthLabel, pageWidth / 2, y, { align: 'center' });
         y += 4;
-        doc.setFont('Times', 'italic');
+        doc.setFont('Helvetica', 'italic');
         doc.setFontSize(8);
         doc.text('Dicetak tanggal: ' + printedDate, pageWidth / 2, y, { align: 'center' });
         y += 8;
 
-        // ---- KETERANGAN PENILAIAN ----
-        doc.setFont('Times', 'bold');
-        doc.setFontSize(9);
-        doc.text('Keterangan Skor:', marginLeft, y);
-        y += 4.5;
-        doc.setFont('Times', 'normal');
-        doc.setFontSize(8);
-        doc.text('90 - 100 = Sangat Baik', marginLeft, y);
-        doc.text('80 - 89  = Baik', marginLeft + 50, y);
-        doc.text('70 - 79  = Cukup', marginLeft + 100, y);
-        doc.text('< 70     = Perlu Perbaikan', marginLeft + 150, y);
-        y += 8;
-
-        // ---- TABEL HEADER ----
-        // Total content width = 182mm (210 - 14 - 14)
-        // Layout: No(8) + Nama(85) + Hadir(16) + Tepat(16) + Lambat(16) + Izin(16) + Skor(25) = 182mm
+        // ---- TABEL RINCIAN PRESENSI ----
+        // Format ini mengikuti PDF acuan: No, Nama Guru, Tanggal, Jam Masuk, Status.
         const colX = {
             no: marginLeft,
-            nama: marginLeft + 8,
-            hadir: marginLeft + 93,
-            tepat: marginLeft + 109,
-            lambat: marginLeft + 125,
-            izin: marginLeft + 141,
-            skor: marginLeft + 157
+            nama: marginLeft + 9,
+            tanggal: marginLeft + 72.5,
+            jam: marginLeft + 90.5,
+            status: marginLeft + 112
+        };
+        const detailRows = state.attendance
+            .filter(log => log.date && log.date.startsWith(m))
+            .map(log => ({
+                log,
+                teacher: state.teachers.find(t => t.id === log.teacherId),
+                name: state.teachers.find(t => t.id === log.teacherId)?.name || 'Guru tidak ditemukan'
+            }))
+            .sort((a, b) => (a.log.date + (a.log.timeIn || '')).localeCompare(b.log.date + (b.log.timeIn || '')));
+
+        const drawTableHeader = () => {
+            doc.setFillColor(204, 204, 204);
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.3);
+            doc.rect(marginLeft, y - 4.8, contentWidth, 7, 'FD');
+            doc.setFont('Helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(0, 0, 0);
+            doc.text('No', colX.no + 2, y);
+            doc.text('Nama Guru', colX.nama + 2, y);
+            doc.text('Tanggal', colX.tanggal + 2, y);
+            doc.text('Jam Masuk', colX.jam + 2, y);
+            doc.text('Status', colX.status + 2, y);
+            y += 7;
         };
 
-        // Header background
-        doc.setFillColor(220, 220, 220);
-        doc.rect(marginLeft, y - 4, contentWidth, 7, 'F');
-        doc.setFont('Times', 'bold');
-        doc.setFontSize(8);
-        doc.setTextColor(0, 0, 0);
-        doc.text('No', colX.no + 2, y);
-        doc.text('Nama Guru', colX.nama + 2, y);
-        doc.text('Hadir', colX.hadir, y, { align: 'center' });
-        doc.text('Tepat', colX.tepat, y, { align: 'center' });
-        doc.text('Lambat', colX.lambat, y, { align: 'center' });
-        doc.text('Izin', colX.izin, y, { align: 'center' });
-        doc.text('Skor', colX.skor, y, { align: 'center' });
-        y += 8;
-
-        // Garis bawah header
-        doc.setDrawColor(180, 180, 180);
-        doc.setLineWidth(0.3);
-        doc.line(marginLeft, y - 1, pageWidth - marginRight, y - 1);
-
-        // ---- ISI DATA ----
-        const summaryRows = buildReportSummary(m);
+        drawTableHeader();
         let pageNum = 1;
 
-        summaryRows.forEach((item, index) => {
+        detailRows.forEach((item, index) => {
             // Cek apakah perlu halaman baru (sisakan ruang untuk footer)
-            if (y > pageHeight - 30) {
-                doc.setFont('Times', 'italic');
+            // Sisakan ruang untuk keterangan status dan tiga tanda tangan.
+            if (y > pageHeight - 60) {
+                doc.setFont('Helvetica', 'italic');
                 doc.setFontSize(8);
                 doc.setTextColor(150, 150, 150);
                 doc.text('Halaman ' + pageNum, pageWidth / 2, pageHeight - 10, { align: 'center' });
@@ -2127,58 +2115,53 @@ function exportReportPdf() {
                 drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
 
                 y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
-
-                // Tabel header ulang
-                doc.setFillColor(220, 220, 220);
-                doc.rect(marginLeft, y - 4, contentWidth, 7, 'F');
-                doc.setFont('Times', 'bold');
-                doc.setFontSize(8);
-                doc.setTextColor(0, 0, 0);
-                doc.text('No', colX.no + 2, y);
-                doc.text('Nama Guru', colX.nama + 2, y);
-                doc.text('Hadir', colX.hadir, y, { align: 'center' });
-                doc.text('Tepat', colX.tepat, y, { align: 'center' });
-                doc.text('Lambat', colX.lambat, y, { align: 'center' });
-                doc.text('Izin', colX.izin, y, { align: 'center' });
-                doc.text('Skor', colX.skor, y, { align: 'center' });
-                y += 8;
-                doc.setDrawColor(180, 180, 180);
-                doc.setLineWidth(0.3);
-                doc.line(marginLeft, y - 1, pageWidth - marginRight, y - 1);
+                drawTableHeader();
             }
 
             // Baris data
-            const skorText = item.skor === '-' ? '-' : item.skor + '/100';
-            const skorVal = item.skor === '-' ? 0 : item.skor;
-            const scoreColor = skorVal >= 90 ? [24, 121, 81] : skorVal >= 80 ? [37, 99, 235] : skorVal >= 70 ? [217, 119, 6] : [185, 28, 28];
+            const status = item.log.type === 'hadir'
+                ? (item.log.statusIn || 'Hadir')
+                : (item.log.type ? item.log.type.charAt(0).toUpperCase() + item.log.type.slice(1) : '-');
+            const timeIn = item.log.timeIn ? item.log.timeIn.substring(0, 5) : '-';
+            const date = new Date(item.log.date + 'T00:00:00').toLocaleDateString('id-ID', {
+                day: '2-digit', month: '2-digit', year: 'numeric'
+            });
 
-            doc.setFont('Times', 'normal');
+            doc.setFont('Helvetica', 'normal');
             doc.setFontSize(8);
             doc.setTextColor(0, 0, 0);
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.2);
+            doc.rect(marginLeft, y - 4.8, contentWidth, 7, 'S');
             doc.text(String(index + 1), colX.no + 2, y);
-            doc.text(item.teacher.name, colX.nama + 2, y);
-            doc.text(String(item.hadirTotal), colX.hadir, y, { align: 'center' });
-            doc.text(String(item.tepat), colX.tepat, y, { align: 'center' });
-            doc.text(String(item.lambat), colX.lambat, y, { align: 'center' });
-            doc.text(String(item.izinSakit), colX.izin, y, { align: 'center' });
-            doc.setTextColor(scoreColor[0], scoreColor[1], scoreColor[2]);
-            doc.text(skorText, colX.skor, y, { align: 'center' });
-            doc.setTextColor(0, 0, 0);
-
-            // Garis pemisah antar baris (skip baris pertama agar tidak double dengan garis header)
-            y += 5.5;
-            if (index > 0) {
-                doc.setDrawColor(230, 230, 230);
-                doc.setLineWidth(0.15);
-                doc.line(marginLeft, y - 1.5, pageWidth - marginRight, y - 1.5);
-            }
+            doc.text(doc.splitTextToSize(item.name, 60)[0], colX.nama + 2, y);
+            doc.text(date, colX.tanggal + 2, y);
+            doc.text(timeIn, colX.jam + 2, y);
+            doc.text(status, colX.status + 2, y);
+            y += 7;
         });
 
-        y += 12;
+        if (detailRows.length === 0) {
+            doc.setFont('Helvetica', 'italic');
+            doc.setFontSize(8);
+            doc.text('Belum ada data presensi pada periode ini.', marginLeft + 2, y);
+            y += 10;
+        }
+
+        // Keterangan status sesuai format laporan acuan.
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text('Keterangan:', marginLeft, y + 3);
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.text('- Tepat Waktu: presensi masuk sesuai jadwal.', marginLeft + 4, y + 7);
+        doc.text('- Terlambat: presensi masuk melewati jadwal.', marginLeft + 4, y + 11);
+        doc.text('- Izin / Sakit / Alpa: status ketidakhadiran guru.', marginLeft + 4, y + 15);
+        y += 25;
 
     // ---- FOOTER / TANDA TANGAN ---- (dengan watermark & header otomatis)
         if (y > pageHeight - 35) {
-            doc.setFont('Times', 'italic');
+            doc.setFont('Helvetica', 'italic');
             doc.setFontSize(8);
             doc.setTextColor(150, 150, 150);
             doc.text('Halaman ' + pageNum, pageWidth / 2, pageHeight - 10, { align: 'center' });
@@ -2196,13 +2179,13 @@ function exportReportPdf() {
         drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, firstDayOfMonth);
 
         y += 18;
-        doc.setFont('Times', 'italic');
+        doc.setFont('Helvetica', 'italic');
         doc.setFontSize(7);
         doc.setTextColor(150, 150, 150);
         doc.text('Dicetak dari sistem presensi guru digital SMK Bidayatul Hidayah - ' + printedDate, pageWidth / 2, y, { align: 'center' });
 
         // Nomor halaman terakhir
-        doc.setFont('Times', 'italic');
+        doc.setFont('Helvetica', 'italic');
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
         doc.text('Halaman ' + pageNum, pageWidth / 2, pageHeight - 10, { align: 'center' });
