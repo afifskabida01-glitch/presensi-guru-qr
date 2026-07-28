@@ -64,3 +64,20 @@
 - **Before:** `doc.text(log.keterangan || '-', ...)` langsung tanpa wrap
 - **After:** `doc.splitTextToSize()` + hitung `extraLines` + `if (index > 0)` untuk garis pemisah
 
+---
+
+# DONE: Revisi Format Export PDF Presensi
+
+## Hasil akhir
+- Watermark PDF memakai `logo.png` dengan transparansi ringan.
+- Judul laporan menjadi **LAPORAN PRESENSI GURU DIGITAL** dan periode menggunakan format `YYYY-MM`.
+- Tabel ringkasan mengikuti acuan: **No, Nama Guru, Hadir, Poin, Catatan Terakhir**.
+- Garis luar, garis kolom, dan garis setiap baris tabel ditambahkan agar rapi dan mudah dibaca.
+- Keterangan penilaian menampilkan poin Tepat Waktu, Izin/Sakit, Terlambat, dan Alpa.
+- Area TTD hanya memuat **Kepala Sekolah** dan **Kepala Tata Usaha**.
+- Nama kedua penandatangan terisi otomatis dari data guru berdasarkan jabatan yang mengandung `Kepala Sekolah` dan `Tata Usaha`.
+
+## Dampak
+- Tampilan halaman aplikasi, data presensi, CSV, dan laporan di dashboard tidak diubah.
+- Template TTD dua pihak juga dipakai oleh Export PDF Izin/Sakit karena keduanya menggunakan fungsi footer PDF yang sama.
+

@@ -2052,55 +2052,55 @@ function exportReportPdf() {
         // ---- JUDUL LAPORAN ----
         doc.setFont('Helvetica', 'bold');
         doc.setFontSize(13);
-        doc.text('LAPORAN PRESENSI GURU', pageWidth / 2, y, { align: 'center' });
+        doc.text('LAPORAN PRESENSI GURU DIGITAL', pageWidth / 2, y, { align: 'center' });
         y += 6;
         doc.setFont('Helvetica', 'normal');
         doc.setFontSize(10);
-        doc.text('Periode: ' + monthLabel, pageWidth / 2, y, { align: 'center' });
+        doc.text('Periode: ' + m, pageWidth / 2, y, { align: 'center' });
         y += 4;
         doc.setFont('Helvetica', 'italic');
         doc.setFontSize(8);
         doc.text('Dicetak tanggal: ' + printedDate, pageWidth / 2, y, { align: 'center' });
         y += 8;
 
-        // ---- TABEL RINCIAN PRESENSI ----
-        // Format ini mengikuti PDF acuan: No, Nama Guru, Tanggal, Jam Masuk, Status.
+        // ---- TABEL RINGKAS PRESENSI ----
+        // Susunan mengikuti acuan: No, Nama Guru, Hadir, Poin, Catatan Terakhir.
         const colX = {
             no: marginLeft,
-            nama: marginLeft + 9,
-            tanggal: marginLeft + 72.5,
-            jam: marginLeft + 90.5,
-            status: marginLeft + 112
+            nama: marginLeft + 10,
+            hadir: marginLeft + 82,
+            poin: marginLeft + 101,
+            catatan: marginLeft + 122
         };
-        const detailRows = state.attendance
-            .filter(log => log.date && log.date.startsWith(m))
-            .map(log => ({
-                log,
-                teacher: state.teachers.find(t => t.id === log.teacherId),
-                name: state.teachers.find(t => t.id === log.teacherId)?.name || 'Guru tidak ditemukan'
-            }))
-            .sort((a, b) => (a.log.date + (a.log.timeIn || '')).localeCompare(b.log.date + (b.log.timeIn || '')));
+        const summaryRows = buildReportSummary(m);
+        const tableBorders = [marginLeft + 10, marginLeft + 82, marginLeft + 101, marginLeft + 122];
+        const drawTableGrid = (top, bottom) => {
+            doc.setDrawColor(65, 65, 65);
+            doc.setLineWidth(0.2);
+            tableBorders.forEach(x => doc.line(x, top, x, bottom));
+        };
 
         const drawTableHeader = () => {
             doc.setFillColor(204, 204, 204);
             doc.setDrawColor(0, 0, 0);
             doc.setLineWidth(0.3);
             doc.rect(marginLeft, y - 4.8, contentWidth, 7, 'FD');
+            drawTableGrid(y - 4.8, y + 2.2);
             doc.setFont('Helvetica', 'bold');
             doc.setFontSize(8);
             doc.setTextColor(0, 0, 0);
             doc.text('No', colX.no + 2, y);
             doc.text('Nama Guru', colX.nama + 2, y);
-            doc.text('Tanggal', colX.tanggal + 2, y);
-            doc.text('Jam Masuk', colX.jam + 2, y);
-            doc.text('Status', colX.status + 2, y);
+            doc.text('Hadir', colX.hadir + 2, y);
+            doc.text('Poin', colX.poin + 2, y);
+            doc.text('Catatan Terakhir', colX.catatan + 2, y);
             y += 7;
         };
 
         drawTableHeader();
         let pageNum = 1;
 
-        detailRows.forEach((item, index) => {
+        summaryRows.forEach((item, index) => {
             // Cek apakah perlu halaman baru (sisakan ruang untuk footer)
             // Sisakan ruang untuk keterangan status dan tiga tanda tangan.
             if (y > pageHeight - 60) {
@@ -2118,14 +2118,16 @@ function exportReportPdf() {
                 drawTableHeader();
             }
 
-            // Baris data
-            const status = item.log.type === 'hadir'
-                ? (item.log.statusIn || 'Hadir')
-                : (item.log.type ? item.log.type.charAt(0).toUpperCase() + item.log.type.slice(1) : '-');
-            const timeIn = item.log.timeIn ? item.log.timeIn.substring(0, 5) : '-';
-            const date = new Date(item.log.date + 'T00:00:00').toLocaleDateString('id-ID', {
-                day: '2-digit', month: '2-digit', year: 'numeric'
-            });
+            // Baris data dan catatan presensi terbaru guru.
+            const latestLog = [...item.logs].sort((a, b) =>
+                (b.date + (b.timeIn || '')).localeCompare(a.date + (a.timeIn || ''))
+            )[0];
+            const lastNote = latestLog
+                ? (latestLog.type === 'hadir'
+                    ? (latestLog.statusIn || 'Hadir')
+                    : latestLog.type.charAt(0).toUpperCase() + latestLog.type.slice(1))
+                : '-';
+            const points = item.skor === '-' ? 0 : item.skor;
 
             doc.setFont('Helvetica', 'normal');
             doc.setFontSize(8);
@@ -2133,34 +2135,36 @@ function exportReportPdf() {
             doc.setDrawColor(0, 0, 0);
             doc.setLineWidth(0.2);
             doc.rect(marginLeft, y - 4.8, contentWidth, 7, 'S');
+            drawTableGrid(y - 4.8, y + 2.2);
             doc.text(String(index + 1), colX.no + 2, y);
-            doc.text(doc.splitTextToSize(item.name, 60)[0], colX.nama + 2, y);
-            doc.text(date, colX.tanggal + 2, y);
-            doc.text(timeIn, colX.jam + 2, y);
-            doc.text(status, colX.status + 2, y);
+            doc.text(doc.splitTextToSize(item.teacher.name, 68)[0], colX.nama + 2, y);
+            doc.text(item.hadirTotal + ' hr', colX.hadir + 2, y);
+            doc.text(points + '/100', colX.poin + 2, y);
+            doc.text(doc.splitTextToSize(lastNote, 55)[0], colX.catatan + 2, y);
             y += 7;
         });
 
-        if (detailRows.length === 0) {
+        if (summaryRows.length === 0) {
             doc.setFont('Helvetica', 'italic');
             doc.setFontSize(8);
             doc.text('Belum ada data presensi pada periode ini.', marginLeft + 2, y);
             y += 10;
         }
 
-        // Keterangan status sesuai format laporan acuan.
+        // Keterangan penilaian sesuai format laporan acuan.
         doc.setFont('Helvetica', 'bold');
         doc.setFontSize(8);
         doc.text('Keterangan:', marginLeft, y + 3);
         doc.setFont('Helvetica', 'normal');
         doc.setFontSize(7.5);
-        doc.text('- Tepat Waktu: presensi masuk sesuai jadwal.', marginLeft + 4, y + 7);
-        doc.text('- Terlambat: presensi masuk melewati jadwal.', marginLeft + 4, y + 11);
-        doc.text('- Izin / Sakit / Alpa: status ketidakhadiran guru.', marginLeft + 4, y + 15);
+        doc.text('- Tepat Waktu: 100 Poin', marginLeft + 4, y + 7);
+        doc.text('- Izin / Sakit: 80 Poin', marginLeft + 4, y + 11);
+        doc.text('- Terlambat: 70 Poin', marginLeft + 4, y + 15);
+        doc.text('- Alpa / Tanpa Keterangan: 0 Poin', marginLeft + 4, y + 19);
         y += 25;
 
     // ---- FOOTER / TANDA TANGAN ---- (dengan watermark & header otomatis)
-        if (y > pageHeight - 35) {
+        if (y > pageHeight - 55) {
             doc.setFont('Helvetica', 'italic');
             doc.setFontSize(8);
             doc.setTextColor(150, 150, 150);
@@ -2178,7 +2182,7 @@ function exportReportPdf() {
         const firstDayOfMonth = m + '-01';
         drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, firstDayOfMonth);
 
-        y += 18;
+        y += 48;
         doc.setFont('Helvetica', 'italic');
         doc.setFontSize(7);
         doc.setTextColor(150, 150, 150);
@@ -2226,33 +2230,24 @@ function findPicketName(dateStr) {
 function drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, reportDateStr) {
     const headmasterName = findHeadmasterName();
     const tuName = findTUName();
-    const picketName = findPicketName(reportDateStr);
 
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.4);
-    doc.line(marginLeft + 5, y, marginLeft + 50, y);
-    doc.setFont('Times', 'normal');
-    doc.setFontSize(9);
-    doc.text(headmasterName, marginLeft + 5, y + 5);
-    doc.setFont('Times', 'italic');
-    doc.setFontSize(7);
-    doc.text('Kepala Sekolah', marginLeft + 5, y + 9);
-    doc.setFont('Times', 'normal');
-    doc.setFontSize(9);
+    const leftX = marginLeft + 35;
+    const rightX = pageWidth - marginRight - 35;
+    const printedDate = new Date().toLocaleDateString('id-ID', {
+        day: 'numeric', month: 'long', year: 'numeric'
+    });
 
-    doc.line(pageWidth / 2 - 22, y, pageWidth / 2 + 28, y);
-    doc.text(tuName, pageWidth / 2 - 22, y + 5);
-    doc.setFont('Times', 'italic');
-    doc.setFontSize(7);
-    doc.text('Kepala Tata Usaha', pageWidth / 2 - 22, y + 9);
-    doc.setFont('Times', 'normal');
-    doc.setFontSize(9);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text('Mojokerto, ' + printedDate, pageWidth - marginRight, y, { align: 'right' });
+    doc.text('Kepala Sekolah', leftX, y + 15, { align: 'center' });
+    doc.text('Kepala Tata Usaha', rightX, y + 15, { align: 'center' });
 
-    doc.line(pageWidth - marginRight - 50, y, pageWidth - marginRight - 5, y);
-    doc.text(picketName, pageWidth - marginRight - 50, y + 5);
-    doc.setFont('Times', 'italic');
-    doc.setFontSize(7);
-    doc.text('Petugas Piket', pageWidth - marginRight - 50, y + 9);
+    // Nama diambil otomatis dari data guru berdasarkan jabatan.
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text(headmasterName, leftX, y + 40, { align: 'center' });
+    doc.text(tuName, rightX, y + 40, { align: 'center' });
 }
 
 // ==========================================================================
@@ -2409,7 +2404,7 @@ function exportIzinSakitPdf() {
     y += 12;
 
     // ---- FOOTER (pake drawPdfFooter) ----
-    if (y > pageHeight - 35) {
+    if (y > pageHeight - 55) {
         doc.setFont('Times', 'italic');
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
@@ -2425,7 +2420,7 @@ function exportIzinSakitPdf() {
     const firstDayOfMonth = m + '-01';
     drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, firstDayOfMonth);
 
-    y += 18;
+    y += 48;
     doc.setFont('Times', 'italic');
     doc.setFontSize(7);
     doc.setTextColor(150, 150, 150);
