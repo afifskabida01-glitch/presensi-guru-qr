@@ -1640,12 +1640,22 @@ window.deleteTeacher = function(id) {
 function populateTeacherDropdownsAdmin() {
     const s1 = document.getElementById("select-jadwal-teacher");
     const s2 = document.getElementById("att-teacher-id");
+    const previousJadwalTeacherId = s1?.value || '';
+    const previousAttendanceTeacherId = s2?.value || '';
+
     if(s1) s1.innerHTML = '<option value="">-- Pilih Guru --</option>';
     if(s2) s2.innerHTML = '';
     state.teachers.forEach(t => {
         if(s1) s1.innerHTML += '<option value="' + t.id + '">' + t.name + '</option>';
         if(s2) s2.innerHTML += '<option value="' + t.id + '">' + t.name + '</option>';
     });
+
+    if (s1 && previousJadwalTeacherId) {
+        s1.value = state.teachers.some(t => t.id === previousJadwalTeacherId) ? previousJadwalTeacherId : '';
+    }
+    if (s2 && previousAttendanceTeacherId) {
+        s2.value = state.teachers.some(t => t.id === previousAttendanceTeacherId) ? previousAttendanceTeacherId : '';
+    }
 }
 
 // ADMIN: JADWAL
@@ -1934,6 +1944,31 @@ function buildReportSummary(month) {
     return summary;
 }
 
+function getMonthLabelFromValue(monthValue) {
+    const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+    if (!monthValue || !monthValue.includes('-')) return '';
+    const [yr, mo] = monthValue.split('-');
+    const monthIndex = parseInt(mo, 10) - 1;
+    if (Number.isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) return '';
+    return monthNames[monthIndex] + ' ' + yr;
+}
+
+function updateExportPdfButtonLabels() {
+    const monthSelect = document.getElementById('select-report-month');
+    const pdfButton = document.getElementById('btn-export-pdf');
+    const izinButton = document.getElementById('btn-export-izin-sakit');
+    if (!monthSelect) return;
+
+    const monthValue = monthSelect.value;
+    const monthLabel = getMonthLabelFromValue(monthValue);
+    if (pdfButton) {
+        pdfButton.innerHTML = '<i class="fa-solid fa-file-pdf"></i> Export PDF Presensi - ' + monthLabel;
+    }
+    if (izinButton) {
+        izinButton.innerHTML = '<i class="fa-solid fa-file-pdf"></i> Export PDF Izin/Sakit - ' + monthLabel;
+    }
+}
+
 function renderReports() {
     if(currentUser?.role !== 'admin') return;
     const sel = document.getElementById("select-report-month"); 
@@ -1974,7 +2009,11 @@ if(document.getElementById("select-report-month")) {
         const label = monthNames[month] + ' ' + year;
         sel.innerHTML += '<option value="' + val + '">' + label + '</option>';
     }
-    sel.addEventListener("change", renderReports);
+    sel.addEventListener("change", () => {
+        renderReports();
+        updateExportPdfButtonLabels();
+    });
+    updateExportPdfButtonLabels();
 }
 
 function exportReportCsv() {
@@ -2392,8 +2431,11 @@ function drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, reportDateStr
 function exportIzinSakitPdf() {
     const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
     const now = new Date();
-    const m = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-    const monthLabel = monthNames[now.getMonth()] + ' ' + now.getFullYear();
+    const selectedMonthEl = document.getElementById('select-report-month');
+    const selectedMonthValue = selectedMonthEl ? selectedMonthEl.value : '';
+    const m = selectedMonthValue || (now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'));
+    const [yr, mo] = m.split('-');
+    const monthLabel = monthNames[parseInt(mo, 10) - 1] + ' ' + yr;
     const printedDate = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
     if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -2401,7 +2443,7 @@ function exportIzinSakitPdf() {
         return;
     }
 
-    // Filter data izin/sakit bulan ini
+    // Filter data izin/sakit sesuai periode bulan yang dipilih
     const izinSakitLogs = state.attendance.filter(a => 
         (a.type === 'izin' || a.type === 'sakit') && a.date.startsWith(m)
     ).sort((a, b) => a.date.localeCompare(b.date));
