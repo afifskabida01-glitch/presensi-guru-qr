@@ -195,26 +195,41 @@ async function syncMissedPicketAbsences() {
     if (automaticAlpaRunning || !state.teachers.length) return;
     automaticAlpaRunning = true;
     try {
-        // Dibuat untuk hari kemarin, setelah guru memiliki satu hari penuh untuk absen.
-        const yesterday = new Date();
-        yesterday.setHours(0, 0, 0, 0);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const date = formatDateStr(yesterday);
-        const dayName = getDayName(yesterday);
-        const missingPicketTeachers = state.teachers.filter(teacher =>
-            isPicketScheduled(teacher, dayName) &&
-            !state.attendance.some(log => log.teacherId === teacher.id && log.date === date)
-        );
+        // Cek 3 hari terakhir agar status alpa otomatis tetap terisi bila hari sebelumnya
+        // sudah lewat dan guru piket belum melakukan absen.
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const datesToCheck = [];
+        for (let offset = 1; offset <= 3; offset++) {
+            const dateObj = new Date(today);
+            dateObj.setDate(dateObj.getDate() - offset);
+            datesToCheck.push(formatDateStr(dateObj));
+        }
 
-        await Promise.all(missingPicketTeachers.map(teacher => saveData('attendance', `alpa-${teacher.id}-${date}`, {
-            id: `alpa-${teacher.id}-${date}`,
-            teacherId: teacher.id,
-            teacherName: teacher.name,
-            date,
-            timeIn: '-', timeOut: '-', statusIn: '-', type: 'alpa',
-            keterangan: 'Otomatis alpa: melewati jadwal piket tanpa presensi.',
-            acuanJam: teacher.picketCheckIn || '06:45', acuanMapel: 'Guru Piket'
-        })));
+        for (const date of datesToCheck) {
+            const dateObj = new Date(date + 'T00:00:00');
+            const dayName = getDayName(dateObj);
+            const missingPicketTeachers = state.teachers.filter(teacher =>
+                isPicketScheduled(teacher, dayName) &&
+                !state.attendance.some(log => log.teacherId === teacher.id && log.date === date)
+            );
+
+            await Promise.all(missingPicketTeachers.map(teacher => {
+                const alpaId = `alpa-${teacher.id}-${date}`;
+                const alreadyRecorded = state.attendance.some(log => log.id === alpaId);
+                if (alreadyRecorded) return Promise.resolve();
+
+                return saveData('attendance', alpaId, {
+                    id: alpaId,
+                    teacherId: teacher.id,
+                    teacherName: teacher.name,
+                    date,
+                    timeIn: '-', timeOut: '-', statusIn: '-', type: 'alpa',
+                    keterangan: 'Otomatis alpa: melewati jadwal piket tanpa presensi.',
+                    acuanJam: teacher.picketCheckIn || '06:45', acuanMapel: 'Guru Piket'
+                });
+            }));
+        }
     } catch (error) {
         console.error('Gagal membuat alpa otomatis guru piket:', error);
     } finally {
@@ -932,34 +947,58 @@ function showClassChangeNotify(mapel, kelas, jamMulai) {
 // Fungsi Notifikasi Desktop / OS
 function sendDesktopNotification(mapel, kelas, jamMulai) {
     try {
-        // Cek apakah Notification API tersedia
         if (!('Notification' in window)) return;
-        
-        // Minta izin jika belum
+
+        const jamStr = jamMulai ? jamMulai.substring(0, 5) : '';
+        const bodyText = kelas
+            ? `Kelas ${kelas} · Jam ${jamStr} — Saatnya mengajar! 🏃‍♂️💨`
+            : `Jam ${jamStr} — Saatnya mengajar! 🏃‍♂️💨`;
+        const notificationTitle = '🔔 Waktunya Masuk Kelas!';
+        const notificationBody = `${mapel}\n${bodyText}`;
+
         if (Notification.permission === 'default') {
             Notification.requestPermission();
             return;
         }
-        
-        // Jika diizinkan, kirim notifikasi
+
         if (Notification.permission === 'granted') {
-            const jamStr = jamMulai ? jamMulai.substring(0, 5) : '';
-            const bodyText = kelas 
-                ? `Kelas ${kelas} · Jam ${jamStr} — Saatnya mengajar! 🏃‍♂️💨`
-                : `Jam ${jamStr} — Saatnya mengajar! 🏃‍♂️💨`;
-            
-            const notif = new Notification('🔔 Waktunya Masuk Kelas!', {
-                body: `${mapel}\n${bodyText}`,
+            const showServiceWorkerNotification = () => {
+                if ('serviceWorker' in navigator && navigator.serviceWorker?.ready) {
+                    navigator.serviceWorker.ready.then((registration) => {
+                        if (registration && typeof registration.showNotification === 'function') {
+                            registration.showNotification(notificationTitle, {
+                                body: notificationBody,
+                                icon: 'logo.png',
+                                badge: 'logo.png',
+                                tag: 'class-change-' + Date.now(),
+                                requireInteraction: true,
+                                vibrate: [200, 100, 200, 100, 200],
+                                data: {
+                                    url: '/index.html',
+                                    mapel,
+                                    kelas,
+                                    jamMulai
+                                }
+                            });
+                        }
+                    }).catch(() => {
+                        // Fallback bawaan browser
+                    });
+                }
+            };
+
+            showServiceWorkerNotification();
+
+            const notif = new Notification(notificationTitle, {
+                body: notificationBody,
                 icon: 'logo.png',
+                badge: 'logo.png',
                 tag: 'class-change-' + Date.now(),
                 requireInteraction: true,
                 vibrate: [200, 100, 200, 100, 200]
             });
-            
-            // Auto close notifikasi setelah 10 detik
+
             setTimeout(() => notif.close(), 10000);
-            
-            // Jika notifikasi diklik, fokus ke halaman
             notif.onclick = function() {
                 window.focus();
                 this.close();
@@ -1977,10 +2016,10 @@ function drawWatermark(doc, pageWidth, pageHeight, watermarkLogo) {
             const wmSize = pageWidth * 0.55;
             const wmX = (pageWidth - wmSize) / 2;
             const wmY = (pageHeight - wmSize) / 2;
-            // Opacity: dengan alpha PNG atau dengan opacity setting
+            // Opacity dibuat lebih lembut agar tidak mengganggu teks utama
             const GStateClass = (typeof jsPDF !== 'undefined' && jsPDF.GState) ? jsPDF.GState : (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.GState ? window.jspdf.jsPDF.GState : null);
             if (GStateClass) {
-                doc.setGState(new GStateClass({ opacity: 0.12 }));
+                doc.setGState(new GStateClass({ opacity: 0.08 }));
                 doc.addImage(watermarkLogo, 'PNG', wmX, wmY, wmSize, wmSize);
                 doc.setGState(new GStateClass({ opacity: 1 }));
             } else {
@@ -2271,8 +2310,12 @@ function findHeadmasterName() {
 
 // Helper: cari nama Kepala Tata Usaha
 function findTUName() {
-    const name = findTeacherNameByJabatan('tata usaha');
-    return name || 'Kepala Tata Usaha';
+    if (!state.teachers || state.teachers.length === 0) return 'Kepala Tata Usaha';
+    const tuTeacher = state.teachers.find(t => {
+        const jabatan = (t.jabatan || '').toLowerCase();
+        return jabatan.includes('tata usaha') || (jabatan.includes('tu') && jabatan.includes('usaha'));
+    });
+    return tuTeacher ? tuTeacher.name : 'Kepala Tata Usaha';
 }
 
 // Helper: cari nama Petugas Piket berdasarkan tanggal tertentu
@@ -2316,10 +2359,12 @@ function drawPicketFooter(doc, pageWidth, marginLeft, marginRight, y, reportDate
 function drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, reportDateStr) {
     const headmasterName = findHeadmasterName();
     const tuName = findTUName();
+    const pickets = findPicketTeachers(reportDateStr);
 
     const leftX = marginLeft + 35;
+    const middleX = pageWidth / 2;
     const rightX = pageWidth - marginRight - 35;
-    const printedDate = new Date().toLocaleDateString('id-ID', {
+    const printedDate = new Date((reportDateStr ? reportDateStr + 'T00:00:00' : new Date().toISOString())).toLocaleDateString('id-ID', {
         day: 'numeric', month: 'long', year: 'numeric'
     });
 
@@ -2328,12 +2373,16 @@ function drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, reportDateStr
     doc.text('Mojokerto, ' + printedDate, pageWidth - marginRight, y, { align: 'right' });
     doc.text('Kepala Sekolah', leftX, y + 15, { align: 'center' });
     doc.text('Kepala Tata Usaha', rightX, y + 15, { align: 'center' });
+    doc.text('Guru Piket 1', middleX - 35, y + 15, { align: 'center' });
+    doc.text('Guru Piket 2', middleX + 35, y + 15, { align: 'center' });
 
     // Nama diambil otomatis dari data guru berdasarkan jabatan.
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8);
     doc.text(headmasterName, leftX, y + 40, { align: 'center' });
     doc.text(tuName, rightX, y + 40, { align: 'center' });
+    doc.text(pickets[0]?.name || 'Belum dijadwalkan', middleX - 35, y + 40, { align: 'center' });
+    doc.text(pickets[1]?.name || 'Belum dijadwalkan', middleX + 35, y + 40, { align: 'center' });
 }
 
 // ==========================================================================
@@ -2434,8 +2483,9 @@ function exportIzinSakitPdf() {
         const ketText = log.keterangan || '-';
         doc.setFont('Helvetica', 'normal');
         doc.setFontSize(7.5);
-        const ketLines = doc.splitTextToSize(ketText, 58).slice(0, 3);
-        const rowHeight = Math.max(7, 5.4 + ((ketLines.length - 1) * 3.6));
+        const ketLines = doc.splitTextToSize(ketText, 58);
+        const visibleKetLines = ketLines.slice(0, 4);
+        const rowHeight = Math.max(7, 5.4 + ((visibleKetLines.length - 1) * 3.6));
 
         if (y + rowHeight > pageHeight - 58) {
             doc.setFont('Times', 'italic');
@@ -2470,7 +2520,7 @@ function exportIzinSakitPdf() {
         doc.text(doc.splitTextToSize(log.teacherName || '-', 45)[0], colX2.nama + 2, y);
         doc.text(jenisLabel, colX2.jenis + 2, y);
         doc.text(jamLabel, colX2.jam + 2, y);
-        doc.text(ketLines, colX2.keterangan + 2, y);
+        doc.text(visibleKetLines, colX2.keterangan + 2, y);
         y += rowHeight;
     });
 
@@ -2489,9 +2539,10 @@ function exportIzinSakitPdf() {
         y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);
     }
 
-    // TTD mengikuti dua guru piket pada tanggal data izin/sakit yang dicetak.
+    // TTD mengikuti dua guru piket pada tanggal data izin/sakit yang dicetak,
+    // serta nama Kepala Sekolah dan Kepala Tata Usaha otomatis dari data guru.
     const picketDate = izinSakitLogs[0]?.date || (m + '-01');
-    drawPicketFooter(doc, pageWidth, marginLeft, marginRight, y, picketDate);
+    drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, picketDate);
 
     y += 48;
     doc.setFont('Times', 'italic');
