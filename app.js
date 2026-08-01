@@ -974,7 +974,7 @@ function sendDesktopNotification(mapel, kelas, jamMulai) {
                                 requireInteraction: true,
                                 vibrate: [200, 100, 200, 100, 200],
                                 data: {
-                                    url: '/index.html',
+                                    url: new URL('./index.html', window.location.href).toString(),
                                     mapel,
                                     kelas,
                                     jamMulai
@@ -1944,6 +1944,13 @@ function buildReportSummary(month) {
     return summary;
 }
 
+function getSelectedReportMonthValue() {
+    const selectedMonthEl = document.getElementById('select-report-month');
+    const now = new Date();
+    const defaultMonthValue = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    return selectedMonthEl?.value || defaultMonthValue;
+}
+
 function getMonthLabelFromValue(monthValue) {
     const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
     if (!monthValue || !monthValue.includes('-')) return '';
@@ -2158,10 +2165,8 @@ function drawPdfHeader(doc, pageWidth, marginLeft, marginRight, yStart, logoLeft
 }
 
 function exportReportPdf() {
-    const m = document.getElementById("select-report-month").value;
-    const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-    const [yr, mo] = m.split('-');
-    const monthLabel = monthNames[parseInt(mo)-1] + ' ' + yr;
+    const m = getSelectedReportMonthValue();
+    const monthLabel = getMonthLabelFromValue(m);
     const printedDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
     if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -2192,6 +2197,10 @@ function exportReportPdf() {
         y += 6;
         doc.setFont('Helvetica', 'normal');
         doc.setFontSize(10);
+        doc.text('Presensi pada bulan ' + monthLabel, pageWidth / 2, y, { align: 'center' });
+        y += 4;
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(9);
         doc.text('Periode: ' + m, pageWidth / 2, y, { align: 'center' });
         y += 4;
         doc.setFont('Helvetica', 'italic');
@@ -2429,13 +2438,9 @@ function drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, reportDateStr
 // ==========================================================================
 
 function exportIzinSakitPdf() {
-    const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
     const now = new Date();
-    const selectedMonthEl = document.getElementById('select-report-month');
-    const selectedMonthValue = selectedMonthEl ? selectedMonthEl.value : '';
-    const m = selectedMonthValue || (now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'));
-    const [yr, mo] = m.split('-');
-    const monthLabel = monthNames[parseInt(mo, 10) - 1] + ' ' + yr;
+    const m = getSelectedReportMonthValue();
+    const monthLabel = getMonthLabelFromValue(m);
     const printedDate = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
     if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -2447,11 +2452,6 @@ function exportIzinSakitPdf() {
     const izinSakitLogs = state.attendance.filter(a => 
         (a.type === 'izin' || a.type === 'sakit') && a.date.startsWith(m)
     ).sort((a, b) => a.date.localeCompare(b.date));
-
-    if (izinSakitLogs.length === 0) {
-        alert('Tidak ada data izin/sakit pada bulan ' + monthLabel);
-        return;
-    }
 
     // Muat logo dulu, baru generate PDF
     loadPdfLogos((logoLeft, logoRight, watermarkLogo) => {
@@ -2470,18 +2470,22 @@ function exportIzinSakitPdf() {
         let y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
 
         // ---- JUDUL ----
-    doc.setFont('Times', 'bold');
-    doc.setFontSize(13);
-    doc.text('LAPORAN IZIN / SAKIT GURU', pageWidth / 2, y, { align: 'center' });
-    y += 6;
-    doc.setFont('Times', 'normal');
-    doc.setFontSize(10);
-    doc.text('Periode: ' + monthLabel, pageWidth / 2, y, { align: 'center' });
-    y += 4;
-    doc.setFont('Times', 'italic');
-    doc.setFontSize(8);
-    doc.text('Dicetak tanggal: ' + printedDate, pageWidth / 2, y, { align: 'center' });
-    y += 8;
+        doc.setFont('Times', 'bold');
+        doc.setFontSize(13);
+        doc.text('LAPORAN IZIN / SAKIT GURU', pageWidth / 2, y, { align: 'center' });
+        y += 6;
+        doc.setFont('Times', 'normal');
+        doc.setFontSize(10);
+        doc.text('Presensi pada bulan ' + monthLabel, pageWidth / 2, y, { align: 'center' });
+        y += 4;
+        doc.setFont('Times', 'normal');
+        doc.setFontSize(9);
+        doc.text('Periode: ' + m, pageWidth / 2, y, { align: 'center' });
+        y += 4;
+        doc.setFont('Times', 'italic');
+        doc.setFontSize(8);
+        doc.text('Dicetak tanggal: ' + printedDate, pageWidth / 2, y, { align: 'center' });
+        y += 8;
 
     // ---- TABEL IZIN / SAKIT ----
     // Setiap kolom diberi grid dan keterangan dibatasi agar tidak keluar tabel.
@@ -2521,50 +2525,58 @@ function exportIzinSakitPdf() {
     // ---- ISI DATA ----
     let pageNum = 1;
 
-    izinSakitLogs.forEach((log, index) => {
-        const ketText = log.keterangan || '-';
-        doc.setFont('Helvetica', 'normal');
-        doc.setFontSize(7.5);
-        const ketLines = doc.splitTextToSize(ketText, 58);
-        const visibleKetLines = ketLines.slice(0, 4);
-        const rowHeight = Math.max(7, 5.4 + ((visibleKetLines.length - 1) * 3.6));
+    if (izinSakitLogs.length === 0) {
+        doc.setFont('Helvetica', 'italic');
+        doc.setFontSize(8);
+        doc.setTextColor(90, 90, 90);
+        doc.text('Belum ada data izin/sakit pada bulan yang dipilih.', marginLeft + 2, y);
+        y += 10;
+    } else {
+        izinSakitLogs.forEach((log, index) => {
+            const ketText = log.keterangan || '-';
+            doc.setFont('Helvetica', 'normal');
+            doc.setFontSize(7.5);
+            const ketLines = doc.splitTextToSize(ketText, 58);
+            const visibleKetLines = ketLines.slice(0, 4);
+            const rowHeight = Math.max(7, 5.4 + ((visibleKetLines.length - 1) * 3.6));
 
-        if (y + rowHeight > pageHeight - 58) {
-            doc.setFont('Times', 'italic');
-            doc.setFontSize(8);
-            doc.setTextColor(150, 150, 150);
-            doc.text('Halaman ' + pageNum, pageWidth / 2, pageHeight - 10, { align: 'center' });
-            doc.addPage();
-            pageNum++;
-            y = 20;
+            if (y + rowHeight > pageHeight - 58) {
+                doc.setFont('Times', 'italic');
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text('Halaman ' + pageNum, pageWidth / 2, pageHeight - 10, { align: 'center' });
+                doc.addPage();
+                pageNum++;
+                y = 20;
 
-            // Watermark di halaman baru
-            drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
+                // Watermark di halaman baru
+                drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
 
-            // Header ulang
-            y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);
+                // Header ulang
+                y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);
 
-            drawTableHeader2();
-        }
+                drawTableHeader2();
+            }
 
-        const jenisLabel = log.type === 'sakit' ? 'SAKIT' : 'IZIN';
-        const jamLabel = log.timeIn ? log.timeIn.substring(0, 5) : '-';
+            const jenisLabel = log.type === 'sakit' ? 'SAKIT' : 'IZIN';
+            const jamLabel = log.timeIn ? log.timeIn.substring(0, 5) : '-';
 
-        doc.setFont('Helvetica', 'normal');
-        doc.setFontSize(7.5);
-        doc.setTextColor(0, 0, 0);
-        doc.setDrawColor(65, 65, 65);
-        doc.setLineWidth(0.2);
-        doc.rect(marginLeft, y - 4.8, contentWidth, rowHeight, 'S');
-        drawGrid2(y - 4.8, y - 4.8 + rowHeight);
-        doc.text(String(index + 1), colX2.no + 2, y);
-        doc.text(log.date, colX2.tgl + 2, y);
-        doc.text(doc.splitTextToSize(log.teacherName || '-', 45)[0], colX2.nama + 2, y);
-        doc.text(jenisLabel, colX2.jenis + 2, y);
-        doc.text(jamLabel, colX2.jam + 2, y);
-        doc.text(visibleKetLines, colX2.keterangan + 2, y);
-        y += rowHeight;
-    });
+            doc.setFont('Helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor(0, 0, 0);
+            doc.setDrawColor(65, 65, 65);
+            doc.setLineWidth(0.2);
+            doc.rect(marginLeft, y - 4.8, contentWidth, rowHeight, 'S');
+            drawGrid2(y - 4.8, y - 4.8 + rowHeight);
+            doc.text(String(index + 1), colX2.no + 2, y);
+            doc.text(log.date, colX2.tgl + 2, y);
+            doc.text(doc.splitTextToSize(log.teacherName || '-', 45)[0], colX2.nama + 2, y);
+            doc.text(jenisLabel, colX2.jenis + 2, y);
+            doc.text(jamLabel, colX2.jam + 2, y);
+            doc.text(visibleKetLines, colX2.keterangan + 2, y);
+            y += rowHeight;
+        });
+    }
 
     y += 12;
 

@@ -5,16 +5,18 @@
  * - Caching untuk akses offline
  */
 
-const CACHE_NAME = 'epgskabida-cache-v3';
+const CACHE_NAME = 'epgskabida-cache-v4';
+const SW_BASE = new URL('.', self.location.href);
+const APP_BASE = SW_BASE.pathname;
 const ASSETS_TO_CACHE = [
-    '/',
-    '/index.html',
-    '/style.css',
-    '/app.js',
-    '/logo.png',
-    '/img_smk_bisa.png',
-    '/firebase-config.js',
-    '/jadwal_pelajaran_2026_27-1.png'
+    new URL('./', SW_BASE).toString(),
+    new URL('./index.html', SW_BASE).toString(),
+    new URL('./style.css', SW_BASE).toString(),
+    new URL('./app.js', SW_BASE).toString(),
+    new URL('./logo.png', SW_BASE).toString(),
+    new URL('./img_smk_bisa.png', SW_BASE).toString(),
+    new URL('./firebase-config.js', SW_BASE).toString(),
+    new URL('./jadwal_pelajaran_2026_27-1.png', SW_BASE).toString()
 ];
 
 // Install event: cache assets
@@ -63,7 +65,7 @@ self.addEventListener('fetch', (event) => {
             }).catch(() => {
                 // If both cache and network fail, return a fallback
                 if (event.request.mode === 'navigate') {
-                    return caches.match('/index.html');
+                    return caches.match(new URL('./index.html', self.location.href).toString());
                 }
                 return new Response('Offline', { status: 503 });
             });
@@ -87,8 +89,8 @@ self.addEventListener('push', (event) => {
     
     const options = {
         body: data.body,
-        icon: '/logo.png',
-        badge: '/logo.png',
+        icon: new URL('./logo.png', self.location.href).toString(),
+        badge: new URL('./logo.png', self.location.href).toString(),
         vibrate: [200, 100, 200, 100, 200],
         tag: data.tag || 'epgskabida-notif',
         requireInteraction: true,
@@ -106,7 +108,7 @@ self.addEventListener('notificationclick', (event) => {
     
     event.notification.close();
     
-    const urlToOpen = '/index.html';
+    const urlToOpen = new URL('./index.html', self.location.href).toString();
     
     event.waitUntil(
         clients.matchAll({
