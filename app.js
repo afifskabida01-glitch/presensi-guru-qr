@@ -1678,6 +1678,11 @@ function populateJadwalGrid() {
         const sch = state.schedules.find(s => s.teacherId === tId && s.day === day);
         let entries = [];
 
+        if (day === 'Jumat') {
+            grid.innerHTML += '<div class="jadwal-day-card" onclick="openJadwalModal(\'' + day + '\')"><div class="jadwal-day-header">' + day + '</div><div class="jadwal-day-body"><div style="font-size:11px; color: var(--text-secondary); margin-bottom:10px;">Status: <strong style="color:var(--text-main);">Libur</strong></div><div class="jadwal-entry" style="background: rgba(16,185,129,0.10); border-left-color: #10b981;">Jumat = Libur</div></div></div>';
+            return;
+        }
+
         if (sch && sch.entries && sch.entries.length > 0) {
             entries = [...sch.entries];
         }
@@ -1951,6 +1956,28 @@ function getSelectedReportMonthValue() {
     return selectedMonthEl?.value || defaultMonthValue;
 }
 
+function getLastWorkingDayOfMonth(monthValue) {
+    if (!monthValue || !monthValue.includes('-')) {
+        return getTodayDateStr();
+    }
+
+    const [year, month] = monthValue.split('-').map(Number);
+    if (Number.isNaN(year) || Number.isNaN(month)) {
+        return getTodayDateStr();
+    }
+
+    let date = new Date(year, month, 0);
+    for (let i = 0; i < 31; i++) {
+        const dayName = getDayName(date);
+        if (dayName !== 'Jumat' && dayName !== 'Sabtu' && dayName !== 'Minggu') {
+            return formatDateStr(date);
+        }
+        date.setDate(date.getDate() - 1);
+    }
+
+    return formatDateStr(new Date(year, month - 1, 1));
+}
+
 function getMonthLabelFromValue(monthValue) {
     const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
     if (!monthValue || !monthValue.includes('-')) return '';
@@ -2058,14 +2085,13 @@ function drawWatermark(doc, pageWidth, pageHeight, watermarkLogo) {
     // Watermark menggunakan logo.png sebagai gambar transparan di background
     if (watermarkLogo && watermarkLogo.width > 0) {
         try {
-            // Ukuran watermark: sekitar 60% dari lebar halaman
-            const wmSize = pageWidth * 0.55;
+            // Ukuran watermark dibuat lebih kecil dan lebih lembut agar tidak menutupi isi tabel.
+            const wmSize = pageWidth * 0.48;
             const wmX = (pageWidth - wmSize) / 2;
             const wmY = (pageHeight - wmSize) / 2;
-            // Opacity dibuat lebih lembut agar tidak mengganggu teks utama
             const GStateClass = (typeof jsPDF !== 'undefined' && jsPDF.GState) ? jsPDF.GState : (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.GState ? window.jspdf.jsPDF.GState : null);
             if (GStateClass) {
-                doc.setGState(new GStateClass({ opacity: 0.08 }));
+                doc.setGState(new GStateClass({ opacity: 0.05 }));
                 doc.addImage(watermarkLogo, 'PNG', wmX, wmY, wmSize, wmSize);
                 doc.setGState(new GStateClass({ opacity: 1 }));
             } else {
@@ -2248,7 +2274,18 @@ function exportReportPdf() {
         summaryRows.forEach((item, index) => {
             // Cek apakah perlu halaman baru (sisakan ruang untuk footer)
             // Sisakan ruang untuk keterangan status dan tiga tanda tangan.
-            if (y > pageHeight - 60) {
+            const latestLog = [...item.logs].sort((a, b) =>
+                (b.date + (b.timeIn || '')).localeCompare(a.date + (a.timeIn || ''))
+            )[0];
+            const lastNote = latestLog
+                ? (latestLog.type === 'hadir'
+                    ? (latestLog.statusIn || 'Hadir')
+                    : latestLog.type.charAt(0).toUpperCase() + latestLog.type.slice(1))
+                : '-';
+            const noteLines = doc.splitTextToSize(lastNote || '-', 52);
+            const rowHeight = Math.max(7, 5.4 + ((noteLines.length - 1) * 3.6));
+
+            if (y + rowHeight > pageHeight - 60) {
                 doc.setFont('Helvetica', 'italic');
                 doc.setFontSize(8);
                 doc.setTextColor(150, 150, 150);
@@ -2263,15 +2300,6 @@ function exportReportPdf() {
                 drawTableHeader();
             }
 
-            // Baris data dan catatan presensi terbaru guru.
-            const latestLog = [...item.logs].sort((a, b) =>
-                (b.date + (b.timeIn || '')).localeCompare(a.date + (a.timeIn || ''))
-            )[0];
-            const lastNote = latestLog
-                ? (latestLog.type === 'hadir'
-                    ? (latestLog.statusIn || 'Hadir')
-                    : latestLog.type.charAt(0).toUpperCase() + latestLog.type.slice(1))
-                : '-';
             const points = item.skor === '-' ? 0 : item.skor;
 
             doc.setFont('Helvetica', 'normal');
@@ -2279,14 +2307,14 @@ function exportReportPdf() {
             doc.setTextColor(0, 0, 0);
             doc.setDrawColor(0, 0, 0);
             doc.setLineWidth(0.2);
-            doc.rect(marginLeft, y - 4.8, contentWidth, 7, 'S');
-            drawTableGrid(y - 4.8, y + 2.2);
+            doc.rect(marginLeft, y - 4.8, contentWidth, rowHeight, 'S');
+            drawTableGrid(y - 4.8, y - 4.8 + rowHeight);
             doc.text(String(index + 1), colX.no + 2, y);
             doc.text(doc.splitTextToSize(item.teacher.name, 68)[0], colX.nama + 2, y);
             doc.text(item.hadirTotal + ' hr', colX.hadir + 2, y);
             doc.text(points + '/100', colX.poin + 2, y);
-            doc.text(doc.splitTextToSize(lastNote, 55)[0], colX.catatan + 2, y);
-            y += 7;
+            doc.text(noteLines, colX.catatan + 2, y + 1.2);
+            y += rowHeight;
         });
 
         if (summaryRows.length === 0) {
@@ -2324,8 +2352,8 @@ function exportReportPdf() {
 
         // Gunakan drawPdfFooter yang sudah mengambil nama otomatis dari data guru
         // Kirim tanggal pertama bulan laporan untuk mencari petugas piket yang sesuai
-        const firstDayOfMonth = m + '-01';
-        drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, firstDayOfMonth);
+        const footerSignatureDate = getLastWorkingDayOfMonth(m);
+        drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, footerSignatureDate);
 
         y += 48;
         doc.setFont('Helvetica', 'italic');
@@ -2419,18 +2447,27 @@ function drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, reportDateStr
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(8);
     doc.text('Mojokerto, ' + printedDate, pageWidth - marginRight, y, { align: 'right' });
-    doc.text('Kepala Sekolah', leftX, y + 15, { align: 'center' });
-    doc.text('Kepala Tata Usaha', rightX, y + 15, { align: 'center' });
+
+    // Baris atas: Guru piket 1 dan 2
     doc.text('Guru Piket 1', middleX - 35, y + 15, { align: 'center' });
     doc.text('Guru Piket 2', middleX + 35, y + 15, { align: 'center' });
 
-    // Nama diambil otomatis dari data guru berdasarkan jabatan.
+    // Nama atas (piket) otomatis dari data guru
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8);
-    doc.text(headmasterName, leftX, y + 40, { align: 'center' });
-    doc.text(tuName, rightX, y + 40, { align: 'center' });
     doc.text(pickets[0]?.name || 'Belum dijadwalkan', middleX - 35, y + 40, { align: 'center' });
     doc.text(pickets[1]?.name || 'Belum dijadwalkan', middleX + 35, y + 40, { align: 'center' });
+
+    // Baris bawah: Kepala Sekolah dan Kepala Tata Usaha
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text('Kepala Sekolah', leftX, y + 62, { align: 'center' });
+    doc.text('Kepala Tata Usaha', rightX, y + 62, { align: 'center' });
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text(headmasterName, leftX, y + 87, { align: 'center' });
+    doc.text(tuName, rightX, y + 87, { align: 'center' });
 }
 
 // ==========================================================================
@@ -2533,12 +2570,11 @@ function exportIzinSakitPdf() {
         y += 10;
     } else {
         izinSakitLogs.forEach((log, index) => {
-            const ketText = log.keterangan || '-';
+            const ketText = (log.keterangan || '-').trim();
             doc.setFont('Helvetica', 'normal');
             doc.setFontSize(7.5);
-            const ketLines = doc.splitTextToSize(ketText, 58);
-            const visibleKetLines = ketLines.slice(0, 4);
-            const rowHeight = Math.max(7, 5.4 + ((visibleKetLines.length - 1) * 3.6));
+            const ketLines = doc.splitTextToSize(ketText, 56);
+            const rowHeight = Math.max(8, 6 + ((ketLines.length - 1) * 3.6));
 
             if (y + rowHeight > pageHeight - 58) {
                 doc.setFont('Times', 'italic');
@@ -2573,7 +2609,7 @@ function exportIzinSakitPdf() {
             doc.text(doc.splitTextToSize(log.teacherName || '-', 45)[0], colX2.nama + 2, y);
             doc.text(jenisLabel, colX2.jenis + 2, y);
             doc.text(jamLabel, colX2.jam + 2, y);
-            doc.text(visibleKetLines, colX2.keterangan + 2, y);
+            doc.text(ketLines, colX2.keterangan + 2, y + 1.5);
             y += rowHeight;
         });
     }
@@ -2593,9 +2629,9 @@ function exportIzinSakitPdf() {
         y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);
     }
 
-    // TTD mengikuti dua guru piket pada tanggal data izin/sakit yang dicetak,
-    // serta nama Kepala Sekolah dan Kepala Tata Usaha otomatis dari data guru.
-    const picketDate = izinSakitLogs[0]?.date || (m + '-01');
+    // TTD mengikuti dua guru piket pada hari kerja terakhir bulan yang dipilih,
+    // menyesuaikan aturan Jumat libur.
+    const picketDate = getLastWorkingDayOfMonth(m);
     drawPdfFooter(doc, pageWidth, marginLeft, marginRight, y, picketDate);
 
     y += 48;
