@@ -2082,16 +2082,17 @@ function exportReportCsv() {
 
 
 function drawWatermark(doc, pageWidth, pageHeight, watermarkLogo) {
-    // Watermark menggunakan logo.png sebagai gambar transparan di background
+    // Watermark menggunakan logo.png sebagai gambar transparan di background.
+    // Ukuran dan opacity dibuat lebih lembut agar tidak terlalu menonjol,
+    // tetap terlihat sebagai background tanpa mengganggu isi tabel.
     if (watermarkLogo && watermarkLogo.width > 0) {
         try {
-            // Ukuran watermark dibuat lebih kecil dan lebih lembut agar tidak menutupi isi tabel.
-            const wmSize = pageWidth * 0.38;
+            const wmSize = Math.min(pageWidth * 0.24, 70);
             const wmX = (pageWidth - wmSize) / 2;
             const wmY = (pageHeight - wmSize) / 2;
             const GStateClass = (typeof jsPDF !== 'undefined' && jsPDF.GState) ? jsPDF.GState : (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.GState ? window.jspdf.jsPDF.GState : null);
             if (GStateClass) {
-                doc.setGState(new GStateClass({ opacity: 0.03 }));
+                doc.setGState(new GStateClass({ opacity: 0.015 }));
                 doc.addImage(watermarkLogo, 'PNG', wmX, wmY, wmSize, wmSize);
                 doc.setGState(new GStateClass({ opacity: 1 }));
             } else {
@@ -2100,22 +2101,22 @@ function drawWatermark(doc, pageWidth, pageHeight, watermarkLogo) {
         } catch (e) {
             // Fallback ke teks jika gambar gagal
             doc.setFont('Times', 'normal');
-            doc.setFontSize(55);
-            doc.setTextColor(210, 210, 210);
-            doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2 + 10, pageHeight / 2 + 5, { 
-                align: 'center', 
-                angle: -30 
+            doc.setFontSize(48);
+            doc.setTextColor(220, 220, 220);
+            doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2 + 10, pageHeight / 2 + 5, {
+                align: 'center',
+                angle: -30
             });
             doc.setTextColor(0, 0, 0);
         }
     } else {
         // Fallback teks jika gambar tidak tersedia
         doc.setFont('Times', 'normal');
-        doc.setFontSize(55);
-        doc.setTextColor(210, 210, 210);
-        doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2 + 10, pageHeight / 2 + 5, { 
-            align: 'center', 
-            angle: -30 
+        doc.setFontSize(48);
+        doc.setTextColor(220, 220, 220);
+        doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2 + 10, pageHeight / 2 + 5, {
+            align: 'center',
+            angle: -30
         });
         doc.setTextColor(0, 0, 0);
     }
