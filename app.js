@@ -1999,7 +1999,7 @@ function updateExportPdfButtonLabels() {
         pdfButton.innerHTML = '<i class="fa-solid fa-file-pdf"></i> Export PDF Presensi - ' + monthLabel;
     }
     if (izinButton) {
-        izinButton.innerHTML = '<i class="fa-solid fa-file-pdf"></i> Export PDF Izin/Sakit - ' + monthLabel;
+        izinButton.innerHTML = '<i class="fa-solid fa-file-pdf"></i> Export PDF Izin / Sakit - ' + monthLabel;
     }
 }
 
@@ -2058,7 +2058,7 @@ function exportReportCsv() {
 
     const rows = [];
     rows.push('"Laporan Presensi Guru - ' + monthLabel + '"');
-    rows.push('"Nama Guru","Total Hadir","Tepat Waktu","Terlambat","Izin/Sakit","Alpa","Skor","Keterangan Penilaian"');
+    rows.push('"Nama Guru","Total Hadir","Tepat Waktu","Terlambat","Izin / Sakit","Alpa","Skor","Keterangan Penilaian"');
 
     const summaryRows = buildReportSummary(m);
     summaryRows.forEach((item) => {
@@ -2086,12 +2086,12 @@ function drawWatermark(doc, pageWidth, pageHeight, watermarkLogo) {
     if (watermarkLogo && watermarkLogo.width > 0) {
         try {
             // Ukuran watermark dibuat lebih kecil dan lebih lembut agar tidak menutupi isi tabel.
-            const wmSize = pageWidth * 0.48;
+            const wmSize = pageWidth * 0.38;
             const wmX = (pageWidth - wmSize) / 2;
             const wmY = (pageHeight - wmSize) / 2;
             const GStateClass = (typeof jsPDF !== 'undefined' && jsPDF.GState) ? jsPDF.GState : (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.GState ? window.jspdf.jsPDF.GState : null);
             if (GStateClass) {
-                doc.setGState(new GStateClass({ opacity: 0.05 }));
+                doc.setGState(new GStateClass({ opacity: 0.03 }));
                 doc.addImage(watermarkLogo, 'PNG', wmX, wmY, wmSize, wmSize);
                 doc.setGState(new GStateClass({ opacity: 1 }));
             } else {
