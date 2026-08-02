@@ -2081,40 +2081,25 @@ function exportReportCsv() {
 }
 
 
-function drawWatermark(doc, pageWidth, pageHeight, watermarkLogo) {
-    // Watermark menggunakan logo.png sebagai gambar transparan di background.
-    // Ukuran dan opacity dibuat lebih lembut agar tidak terlalu menonjol,
-    // tetap terlihat sebagai background tanpa mengganggu isi tabel.
-    if (watermarkLogo && watermarkLogo.width > 0) {
-        try {
-            const wmSize = Math.min(pageWidth * 0.24, 70);
-            const wmX = (pageWidth - wmSize) / 2;
-            const wmY = (pageHeight - wmSize) / 2;
-            const GStateClass = (typeof jsPDF !== 'undefined' && jsPDF.GState) ? jsPDF.GState : (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.GState ? window.jspdf.jsPDF.GState : null);
-            if (GStateClass) {
-                doc.setGState(new GStateClass({ opacity: 0.015 }));
-                doc.addImage(watermarkLogo, 'PNG', wmX, wmY, wmSize, wmSize);
-                doc.setGState(new GStateClass({ opacity: 1 }));
-            } else {
-                doc.addImage(watermarkLogo, 'PNG', wmX, wmY, wmSize, wmSize);
-            }
-        } catch (e) {
-            // Fallback ke teks jika gambar gagal
-            doc.setFont('Times', 'normal');
-            doc.setFontSize(48);
-            doc.setTextColor(220, 220, 220);
-            doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2 + 10, pageHeight / 2 + 5, {
-                align: 'center',
-                angle: -30
-            });
-            doc.setTextColor(0, 0, 0);
-        }
-    } else {
-        // Fallback teks jika gambar tidak tersedia
-        doc.setFont('Times', 'normal');
-        doc.setFontSize(48);
+function drawWatermark(doc, pageWidth, pageHeight) {
+    // Watermark PDF diperlunak sebagai teks umum agar semua dokumen
+    // memiliki tampilan background yang konsisten tanpa mengandalkan logo spesifik.
+    try {
+        const label = 'DOKUMEN DIGITAL';
+        const fontSize = Math.max(24, Math.min(34, pageWidth * 0.14));
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(fontSize);
         doc.setTextColor(220, 220, 220);
-        doc.text('SMK BIDAYATUL HIDAYAH', pageWidth / 2 + 10, pageHeight / 2 + 5, {
+        doc.text(label, pageWidth / 2 + 10, pageHeight / 2 + 5, {
+            align: 'center',
+            angle: -30
+        });
+        doc.setTextColor(0, 0, 0);
+    } catch (e) {
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(24);
+        doc.setTextColor(220, 220, 220);
+        doc.text('DOKUMEN DIGITAL', pageWidth / 2 + 10, pageHeight / 2 + 5, {
             align: 'center',
             angle: -30
         });
@@ -2125,14 +2110,13 @@ function drawWatermark(doc, pageWidth, pageHeight, watermarkLogo) {
 function loadPdfLogos(callback) {
     const logoLeft = new Image();
     const logoRight = new Image();
-    const watermarkLogo = new Image(); // siapkan untuk watermark
     let loaded = 0;
-    const total = 3; // 3 images
+    const total = 2;
 
     function onLoad() {
         loaded++;
         if (loaded >= total) {
-            callback(logoLeft, logoRight, watermarkLogo);
+            callback(logoLeft, logoRight);
         }
     }
 
@@ -2140,12 +2124,9 @@ function loadPdfLogos(callback) {
     logoLeft.onerror = onLoad;
     logoRight.onload = onLoad;
     logoRight.onerror = onLoad;
-    watermarkLogo.onload = onLoad;
-    watermarkLogo.onerror = onLoad;
 
     logoLeft.src = 'logo.png';
     logoRight.src = 'img_smk_bisa.png';
-    watermarkLogo.src = 'logo.png'; // pakai logo.png untuk watermark
 }
 
 function drawPdfHeader(doc, pageWidth, marginLeft, marginRight, yStart, logoLeft, logoRight) {
@@ -2202,7 +2183,7 @@ function exportReportPdf() {
     }
 
     // Muat logo dulu, baru generate PDF
-    loadPdfLogos((logoLeft, logoRight, watermarkLogo) => {
+    loadPdfLogos((logoLeft, logoRight) => {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         const pageWidth = doc.internal.pageSize.getWidth(); // 210mm
@@ -2211,8 +2192,8 @@ function exportReportPdf() {
         const marginRight = 14;
         const contentWidth = pageWidth - marginLeft - marginRight;
 
-        // ---- WATERMARK (logo.png di tengah) ----
-        drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
+        // ---- WATERMARK umum di tengah halaman ----
+        drawWatermark(doc, pageWidth, pageHeight);
 
         // ---- HEADER (Kop Surat) ----
         let y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
@@ -2295,7 +2276,7 @@ function exportReportPdf() {
                 pageNum++;
 
                 // Watermark di halaman baru
-                drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
+                drawWatermark(doc, pageWidth, pageHeight);
 
                 y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
                 drawTableHeader();
@@ -2347,7 +2328,7 @@ function exportReportPdf() {
             pageNum++;
             y = 18;
             // Watermark di halaman baru
-            drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
+            drawWatermark(doc, pageWidth, pageHeight);
             y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);
         }
 
@@ -2492,7 +2473,7 @@ function exportIzinSakitPdf() {
     ).sort((a, b) => a.date.localeCompare(b.date));
 
     // Muat logo dulu, baru generate PDF
-    loadPdfLogos((logoLeft, logoRight, watermarkLogo) => {
+    loadPdfLogos((logoLeft, logoRight) => {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -2501,8 +2482,8 @@ function exportIzinSakitPdf() {
         const marginRight = 14;
         const contentWidth = pageWidth - marginLeft - marginRight;
 
-        // ---- WATERMARK (logo.png di tengah) ----
-        drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
+        // ---- WATERMARK umum di tengah halaman ----
+        drawWatermark(doc, pageWidth, pageHeight);
 
         // ---- HEADER (pake drawPdfHeader) ----
         let y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
@@ -2587,7 +2568,7 @@ function exportIzinSakitPdf() {
                 y = 20;
 
                 // Watermark di halaman baru
-                drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
+                drawWatermark(doc, pageWidth, pageHeight);
 
                 // Header ulang
                 y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);
@@ -2626,7 +2607,7 @@ function exportIzinSakitPdf() {
         doc.addPage();
         pageNum++;
         y = 20;
-        drawWatermark(doc, pageWidth, pageHeight, watermarkLogo);
+        drawWatermark(doc, pageWidth, pageHeight);
         y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);
     }
 
