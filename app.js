@@ -2122,7 +2122,7 @@ function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
                 }
             });
             offsets.push([0, 0]); // lapisan tengah paling tebal
-            const blurOpacity = createPdfOpacityState(0.05);
+            const blurOpacity = createPdfOpacityState(0.07); // opasitas 7%
 
             if (blurOpacity) {
                 doc.saveGraphicsState();
@@ -2145,7 +2145,7 @@ function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
                 const targetHeight = targetWidth * (logoCenter.height / Math.max(logoCenter.width, 1));
                 const centerX = (pageWidth - targetWidth) / 2;
                 const centerY = (pageHeight - targetHeight) / 2;
-                const blurOpacity = createPdfOpacityState(0.12);
+                const blurOpacity = createPdfOpacityState(0.07); // opasitas 7%
                 if (blurOpacity) {
                     doc.saveGraphicsState();
                     doc.setGState(blurOpacity);
