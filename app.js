@@ -2103,13 +2103,26 @@ function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
             const centerX = (pageWidth - targetWidth) / 2;
             const centerY = (pageHeight - targetHeight) / 2;
 
-            // Offset dalam mm untuk mensimulasikan blur (banyak lapisan).
-            const offsets = [
-                [-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5],
-                [0, -0.8], [0, 0.8], [-0.8, 0], [0.8, 0],
-                [0, 0]
+            // Susun offset pola Gaussian blur: beberapa lingkaran konsentris
+            // dengan radius makin besar agar tepi logo melebar & memudar lebih kuat.
+            const offsets = [];
+            const rings = [
+                { radius: 0.5, count: 6 },
+                { radius: 1.2, count: 10 },
+                { radius: 2.0, count: 14 },
+                { radius: 2.8, count: 18 }
             ];
-            const blurOpacity = createPdfOpacityState(0.10);
+            rings.forEach((ring) => {
+                for (let i = 0; i < ring.count; i++) {
+                    const angle = (i / ring.count) * Math.PI * 2;
+                    offsets.push([
+                        Math.cos(angle) * ring.radius,
+                        Math.sin(angle) * ring.radius
+                    ]);
+                }
+            });
+            offsets.push([0, 0]); // lapisan tengah paling tebal
+            const blurOpacity = createPdfOpacityState(0.05);
 
             if (blurOpacity) {
                 doc.saveGraphicsState();
