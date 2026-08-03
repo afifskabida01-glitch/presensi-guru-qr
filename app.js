@@ -2095,59 +2095,56 @@ function createPdfOpacityState(opacity) {
 function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
     try {
         if (logoCenter && logoCenter.width > 0) {
-            const targetWidth = Math.min(96, Math.max(54, pageWidth * 0.42));
+            // Gambar logo.png di tengah sebagai pengganti tulisan "DOKUMEN DIGITAL".
+            // Karena jsPDF tidak punya filter blur native, efek blur dibuat dengan
+            // menggambar ulang gambar beberapa kali dengan offset kecil & opacity rendah.
+            const targetWidth = Math.min(120, Math.max(70, pageWidth * 0.5));
             const targetHeight = targetWidth * (logoCenter.height / Math.max(logoCenter.width, 1));
             const centerX = (pageWidth - targetWidth) / 2;
             const centerY = (pageHeight - targetHeight) / 2;
-            const gState = createPdfOpacityState(0.08);
 
-            if (gState) {
+            // Offset dalam mm untuk mensimulasikan blur (banyak lapisan).
+            const offsets = [
+                [-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5],
+                [0, -0.8], [0, 0.8], [-0.8, 0], [0.8, 0],
+                [0, 0]
+            ];
+            const blurOpacity = createPdfOpacityState(0.10);
+
+            if (blurOpacity) {
                 doc.saveGraphicsState();
-                doc.setGState(gState);
-                [0, -1.4, 1.4].forEach((dx) => {
-                    doc.addImage(logoCenter, 'PNG', centerX + dx, centerY, targetWidth, targetHeight);
+                doc.setGState(blurOpacity);
+                offsets.forEach(([dx, dy]) => {
+                    doc.addImage(logoCenter, 'PNG', centerX + dx, centerY + dy, targetWidth, targetHeight);
                 });
                 doc.restoreGraphicsState();
             } else {
-                doc.addImage(logoCenter, 'PNG', centerX, centerY, targetWidth, targetHeight);
+                offsets.forEach(([dx, dy]) => {
+                    doc.addImage(logoCenter, 'PNG', centerX + dx, centerY + dy, targetWidth, targetHeight);
+                });
             }
         }
-
-        const label = 'DOKUMEN DIGITAL';
-        const fontSize = Math.max(20, Math.min(28, pageWidth * 0.12));
-        const textOpacity = createPdfOpacityState(0.24);
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(fontSize);
-        doc.setTextColor(205, 205, 205);
-        if (textOpacity) {
-            doc.saveGraphicsState();
-            doc.setGState(textOpacity);
-        }
-        doc.text(label, pageWidth / 2 + 9, pageHeight / 2 + 4, {
-            align: 'center',
-            angle: -30
-        });
-        if (textOpacity) {
-            doc.restoreGraphicsState();
-        }
-        doc.setTextColor(0, 0, 0);
     } catch (e) {
-        doc.setFont('Helvetica', 'bold');
-        doc.setFontSize(24);
-        doc.setTextColor(205, 205, 205);
-        const textOpacity = createPdfOpacityState(0.24);
-        if (textOpacity) {
-            doc.saveGraphicsState();
-            doc.setGState(textOpacity);
+        // Fallback jika logo gagal dimuat: gambar logo tanpa blur bila ada.
+        try {
+            if (logoCenter && logoCenter.width > 0) {
+                const targetWidth = Math.min(120, Math.max(70, pageWidth * 0.5));
+                const targetHeight = targetWidth * (logoCenter.height / Math.max(logoCenter.width, 1));
+                const centerX = (pageWidth - targetWidth) / 2;
+                const centerY = (pageHeight - targetHeight) / 2;
+                const blurOpacity = createPdfOpacityState(0.12);
+                if (blurOpacity) {
+                    doc.saveGraphicsState();
+                    doc.setGState(blurOpacity);
+                }
+                doc.addImage(logoCenter, 'PNG', centerX, centerY, targetWidth, targetHeight);
+                if (blurOpacity) {
+                    doc.restoreGraphicsState();
+                }
+            }
+        } catch (e2) {
+            // abaikan
         }
-        doc.text('DOKUMEN DIGITAL', pageWidth / 2 + 10, pageHeight / 2 + 5, {
-            align: 'center',
-            angle: -30
-        });
-        if (textOpacity) {
-            doc.restoreGraphicsState();
-        }
-        doc.setTextColor(0, 0, 0);
     }
 }
 
