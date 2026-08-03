@@ -3,7 +3,7 @@
  * Mengelola sistem sinkronisasi database cloud Firebase Firestore.
  */
 
-const APP_VERSION = "prod-5.2";
+const APP_VERSION = "prod-5.3";
 
 let state = {
     teachers: [],
@@ -2081,28 +2081,72 @@ function exportReportCsv() {
 }
 
 
-function drawWatermark(doc, pageWidth, pageHeight) {
-    // Watermark PDF diperlunak sebagai teks umum agar semua dokumen
-    // memiliki tampilan background yang konsisten tanpa mengandalkan logo spesifik.
+function createPdfOpacityState(opacity) {
+    const GStateCtor = window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.GState;
+    if (GStateCtor) {
+        return new GStateCtor({ opacity });
+    }
+    if (typeof jsPDF !== 'undefined' && jsPDF.GState) {
+        return new jsPDF.GState({ opacity });
+    }
+    return null;
+}
+
+function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
     try {
+        if (logoCenter && logoCenter.width > 0) {
+            const targetWidth = Math.min(96, Math.max(54, pageWidth * 0.42));
+            const targetHeight = targetWidth * (logoCenter.height / Math.max(logoCenter.width, 1));
+            const centerX = (pageWidth - targetWidth) / 2;
+            const centerY = (pageHeight - targetHeight) / 2;
+            const gState = createPdfOpacityState(0.08);
+
+            if (gState) {
+                doc.saveGraphicsState();
+                doc.setGState(gState);
+                [0, -1.4, 1.4].forEach((dx) => {
+                    doc.addImage(logoCenter, 'PNG', centerX + dx, centerY, targetWidth, targetHeight);
+                });
+                doc.restoreGraphicsState();
+            } else {
+                doc.addImage(logoCenter, 'PNG', centerX, centerY, targetWidth, targetHeight);
+            }
+        }
+
         const label = 'DOKUMEN DIGITAL';
-        const fontSize = Math.max(24, Math.min(34, pageWidth * 0.14));
+        const fontSize = Math.max(20, Math.min(28, pageWidth * 0.12));
+        const textOpacity = createPdfOpacityState(0.24);
         doc.setFont('Helvetica', 'bold');
         doc.setFontSize(fontSize);
-        doc.setTextColor(220, 220, 220);
-        doc.text(label, pageWidth / 2 + 10, pageHeight / 2 + 5, {
+        doc.setTextColor(205, 205, 205);
+        if (textOpacity) {
+            doc.saveGraphicsState();
+            doc.setGState(textOpacity);
+        }
+        doc.text(label, pageWidth / 2 + 9, pageHeight / 2 + 4, {
             align: 'center',
             angle: -30
         });
+        if (textOpacity) {
+            doc.restoreGraphicsState();
+        }
         doc.setTextColor(0, 0, 0);
     } catch (e) {
         doc.setFont('Helvetica', 'bold');
         doc.setFontSize(24);
-        doc.setTextColor(220, 220, 220);
+        doc.setTextColor(205, 205, 205);
+        const textOpacity = createPdfOpacityState(0.24);
+        if (textOpacity) {
+            doc.saveGraphicsState();
+            doc.setGState(textOpacity);
+        }
         doc.text('DOKUMEN DIGITAL', pageWidth / 2 + 10, pageHeight / 2 + 5, {
             align: 'center',
             angle: -30
         });
+        if (textOpacity) {
+            doc.restoreGraphicsState();
+        }
         doc.setTextColor(0, 0, 0);
     }
 }
@@ -2193,7 +2237,7 @@ function exportReportPdf() {
         const contentWidth = pageWidth - marginLeft - marginRight;
 
         // ---- WATERMARK umum di tengah halaman ----
-        drawWatermark(doc, pageWidth, pageHeight);
+        drawWatermark(doc, pageWidth, pageHeight, logoLeft);
 
         // ---- HEADER (Kop Surat) ----
         let y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
@@ -2276,7 +2320,7 @@ function exportReportPdf() {
                 pageNum++;
 
                 // Watermark di halaman baru
-                drawWatermark(doc, pageWidth, pageHeight);
+                drawWatermark(doc, pageWidth, pageHeight, logoLeft);
 
                 y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
                 drawTableHeader();
@@ -2328,7 +2372,7 @@ function exportReportPdf() {
             pageNum++;
             y = 18;
             // Watermark di halaman baru
-            drawWatermark(doc, pageWidth, pageHeight);
+            drawWatermark(doc, pageWidth, pageHeight, logoLeft);
             y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);
         }
 
@@ -2483,7 +2527,7 @@ function exportIzinSakitPdf() {
         const contentWidth = pageWidth - marginLeft - marginRight;
 
         // ---- WATERMARK umum di tengah halaman ----
-        drawWatermark(doc, pageWidth, pageHeight);
+        drawWatermark(doc, pageWidth, pageHeight, logoLeft);
 
         // ---- HEADER (pake drawPdfHeader) ----
         let y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, 18, logoLeft, logoRight);
@@ -2568,7 +2612,7 @@ function exportIzinSakitPdf() {
                 y = 20;
 
                 // Watermark di halaman baru
-                drawWatermark(doc, pageWidth, pageHeight);
+                drawWatermark(doc, pageWidth, pageHeight, logoLeft);
 
                 // Header ulang
                 y = drawPdfHeader(doc, pageWidth, marginLeft, marginRight, y, logoLeft, logoRight);

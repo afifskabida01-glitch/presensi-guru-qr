@@ -5,7 +5,7 @@
  * - Caching untuk akses offline
  */
 
-const CACHE_NAME = 'epgskabida-cache-v4';
+const CACHE_NAME = 'epgskabida-cache-v5';
 const SW_BASE = new URL('.', self.location.href);
 const APP_BASE = SW_BASE.pathname;
 const ASSETS_TO_CACHE = [
@@ -46,27 +46,33 @@ self.addEventListener('activate', (event) => {
     return self.clients.claim();
 });
 
-// Fetch event: serve from cache first, fallback to network
+// Fetch event: prefer network for the latest app files, but keep a cache fallback.
 self.addEventListener('fetch', (event) => {
+    const { request } = event;
+    const isSameOrigin = request.url.startsWith(self.location.origin);
+    const shouldUseNetworkFirst = request.mode === 'navigate' || request.destination === 'script' || request.destination === 'style' || request.destination === 'image';
+
+    if (!isSameOrigin || request.method !== 'GET') {
+        return;
+    }
+
     event.respondWith(
-        caches.match(event.request).then((response) => {
-            if (response) {
-                return response;
+        (shouldUseNetworkFirst ? fetch(request) : caches.match(request)).then((response) => {
+            if (response && response.status === 200 && isSameOrigin) {
+                const clone = response.clone();
+                caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
             }
-            return fetch(event.request).then((networkResponse) => {
-                // Cache successful responses for future
-                if (networkResponse && networkResponse.status === 200) {
-                    const responseClone = networkResponse.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, responseClone);
-                    });
+            return response;
+        }).catch(() => {
+            return caches.match(request).then((cachedResponse) => {
+                if (cachedResponse) {
+                    return cachedResponse;
                 }
-                return networkResponse;
-            }).catch(() => {
-                // If both cache and network fail, return a fallback
-                if (event.request.mode === 'navigate') {
+
+                if (request.mode === 'navigate') {
                     return caches.match(new URL('./index.html', self.location.href).toString());
                 }
+
                 return new Response('Offline', { status: 503 });
             });
         })
@@ -74,6 +80,12 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Push event: handle push notifications from server
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+});
+
 self.addEventListener('push', (event) => {
     console.log('[SW] Push notification received:', event);
     
