@@ -2294,7 +2294,7 @@ function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
                 [0.8, 0.5],
                 [0, 0] // lapisan tengah
             ];
-            const blurOpacity = createPdfOpacityState(0.005); // ±0.5% per lapisan (total ±1.5%)
+            const blurOpacity = createPdfOpacityState(0.03); // ±3% per lapisan (total ±9%)
 
             if (blurOpacity) {
                 doc.saveGraphicsState();
@@ -2306,7 +2306,7 @@ function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
             } else {
                 // Fallback: tetap gunakan opacity via setFillColor alpha jika GState tidak tersedia
                 doc.saveGraphicsState();
-                doc.setGState(new (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.GState || jsPDF.GState)({ opacity: 0.005 }));
+                doc.setGState(new (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.GState || jsPDF.GState)({ opacity: 0.03 }));
                 offsets.forEach(([dx, dy]) => {
                     doc.addImage(logoCenter, 'PNG', centerX + dx, centerY + dy, targetWidth, targetHeight);
                 });
@@ -2321,7 +2321,7 @@ function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
                 const targetHeight = targetWidth * (logoCenter.height / Math.max(logoCenter.width, 1));
                 const centerX = (pageWidth - targetWidth) / 2;
                 const centerY = (pageHeight - targetHeight) / 2;
-                const blurOpacity = createPdfOpacityState(0.005); // opasitas 0.5% (sangat tipis)
+                const blurOpacity = createPdfOpacityState(0.03); // opasitas 3% (cukup terlihat)
                 if (blurOpacity) {
                     doc.saveGraphicsState();
                     doc.setGState(blurOpacity);
