@@ -2103,14 +2103,12 @@ function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
             const centerX = (pageWidth - targetWidth) / 2;
             const centerY = (pageHeight - targetHeight) / 2;
 
-            // Susun offset pola Gaussian blur: beberapa lingkaran konsentris
-            // dengan radius makin besar agar tepi logo melebar & memudar lebih kuat.
+// Susun offset pola blur tipis: hanya sedikit lapisan dengan radius kecil
+            // agar tepi logo memudar halus tanpa membuat warna menyatu / menebal.
             const offsets = [];
             const rings = [
-                { radius: 0.5, count: 6 },
-                { radius: 1.2, count: 10 },
-                { radius: 2.0, count: 14 },
-                { radius: 2.8, count: 18 }
+                { radius: 0.3, count: 4 },
+                { radius: 0.7, count: 6 }
             ];
             rings.forEach((ring) => {
                 for (let i = 0; i < ring.count; i++) {
@@ -2121,8 +2119,8 @@ function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
                     ]);
                 }
             });
-            offsets.push([0, 0]); // lapisan tengah paling tebal
-            const blurOpacity = createPdfOpacityState(0.01); // opasitas 7%
+            offsets.push([0, 0]); // lapisan tengah
+            const blurOpacity = createPdfOpacityState(0.004); // opasitas 0.4% (sangat tipis)
 
             if (blurOpacity) {
                 doc.saveGraphicsState();
@@ -2144,8 +2142,8 @@ function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
                 const targetWidth = Math.min(120, Math.max(70, pageWidth * 0.5));
                 const targetHeight = targetWidth * (logoCenter.height / Math.max(logoCenter.width, 1));
                 const centerX = (pageWidth - targetWidth) / 2;
-                const centerY = (pageHeight - targetHeight) / 2;
-                const blurOpacity = createPdfOpacityState(0.01); // opasitas 7%
+const centerY = (pageHeight - targetHeight) / 2;
+                const blurOpacity = createPdfOpacityState(0.004); // opasitas 0.4% (sangat tipis)
                 if (blurOpacity) {
                     doc.saveGraphicsState();
                     doc.setGState(blurOpacity);
