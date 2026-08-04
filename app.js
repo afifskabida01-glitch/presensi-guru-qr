@@ -518,9 +518,9 @@ function renderStaffDailyReport() {
             else if(log.type === 'sakit') statusHtml = '<span class="badge badge-secondary">Sakit</span>';
             else if(log.type === 'alpa') statusHtml = '<span class="badge badge-danger">Alpa</span>';
             else if(log.statusIn === 'Terlambat') statusHtml = '<span class="badge badge-warning">Terlambat</span>';
-            else statusHtml = '<span class="badge badge-success">Tepat Waktu</span>';
+else statusHtml = '<span class="badge badge-success">Tepat Waktu</span>';
             
-            if(log.keterangan) ketHtml = '<span style="font-size:12px; color:var(--text-secondary);">' + log.keterangan + '</span>';
+            if(log.keterangan) ketHtml = '<div style="font-size:12px; color:var(--text-secondary); white-space:normal; word-break:break-word; max-width:220px; line-height:1.4;">' + log.keterangan + '</div>';
         }
         
         tbody.innerHTML += '<tr><td><strong>' + t.name + '</strong></td><td>' + acuanHtml + '</td><td>' + timeInHtml + '</td><td>' + timeOutHtml + '</td><td class="text-center">' + statusHtml + '</td><td>' + ketHtml + '</td></tr>';
@@ -2030,7 +2030,7 @@ function renderManageAttendanceTable() {
             else if(log.statusIn === 'Terlambat') statusHtml = '<span class="badge badge-warning">Terlambat</span>';
             else statusHtml = '<span class="badge badge-success">Tepat Waktu</span>';
             
-            if(log.keterangan) ketHtml = '<span style="font-size:12px; color:var(--text-secondary);">' + log.keterangan + '</span>';
+            if(log.keterangan) ketHtml = '<div style="font-size:12px; color:var(--text-secondary); white-space:normal; word-break:break-word; max-width:220px; line-height:1.4;">' + log.keterangan + '</div>';
         }
         
         tbody.innerHTML += '<tr><td><strong>' + t.name + '</strong></td><td>' + acuanHtml + '</td><td>' + timeInHtml + '</td><td>' + timeOutHtml + '</td><td class="text-center">' + statusHtml + '</td><td>' + ketHtml + '</td><td><div class="action-buttons">' + actBtns + '</div></td></tr>';

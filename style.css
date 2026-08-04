@@ -452,6 +452,8 @@ select option { background: var(--bg-app); color: var(--text-main); }
 .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .data-table { width: 100%; border-collapse: collapse; min-width: 580px; }
 .data-table th, .data-table td { padding: 16px 24px; text-align: left; border-bottom: 1px solid var(--border-glass); white-space: nowrap; }
+/* Kolom Keterangan (Ket) agar teks panjang turun ke bawah, tidak memanjang melebihi layar */
+.data-table td:nth-child(6) { white-space: normal; }
 .data-table th { font-size: 12px; text-transform: uppercase; color: var(--text-secondary); background: rgba(0, 0, 0, 0.2); }
 
 .text-center { text-align: center; }
