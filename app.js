@@ -88,6 +88,12 @@ function setupFirebaseListeners() {
 }
 
 function triggerAdminRender() {
+    // Refresh tampilan staff (Kepala Sekolah / Tata Usaha / Bendahara) saat data berubah
+    if (currentUser && currentUser.role === 'staff') {
+        try { renderStaffDailyReport(); } catch (e) { console.error("Gagal renderStaffDailyReport:", e); }
+        try { renderStaffMonthlyReport(); } catch (e) { console.error("Gagal renderStaffMonthlyReport:", e); }
+        return;
+    }
     if (!currentUser || currentUser.role !== 'admin') return;
     try { renderDashboardStats(); } catch (e) { console.error("Gagal renderDashboardStats:", e); }
     try { renderLiveFeed(); } catch (e) { console.error("Gagal renderLiveFeed:", e); }
@@ -290,6 +296,13 @@ function navigateTo(viewId) {
         const dashTab = document.getElementById('tab-dashboard');
         dashTab?.classList.add('active');
     }
+
+    if(viewId === 'view-staff') {
+        const dailyNav = document.querySelector('.nav-item[data-tab="staff-daily"]');
+        dailyNav?.classList.add('active');
+        const dailyTab = document.getElementById('tab-staff-daily');
+        dailyTab?.classList.add('active');
+    }
 }
 
 function checkSession() {
@@ -301,12 +314,16 @@ function checkSession() {
     if (!currentUser) {
         navigateTo('view-login');
         renderLoginDropdown();
+        renderStaffLoginDropdown();
     } else if (currentUser.role === 'admin') {
         navigateTo('view-admin');
         initAdminView();
     } else if (currentUser.role === 'guru') {
         navigateTo('view-guru');
         initGuruView();
+    } else if (currentUser.role === 'staff') {
+        navigateTo('view-staff');
+        initStaffView();
     }
 }
 
@@ -375,6 +392,171 @@ document.getElementById("btn-logout-guru").addEventListener('click', () => {
     sessionStorage.removeItem('qr_presensi_session');
     checkSession();
 });
+
+// ==========================================================================
+// LOGIN & VIEW: STAFF LAPORAN (Kepala Sekolah / Tata Usaha / Bendahara)
+// ==========================================================================
+
+function isStaffJabatan(jabatan) {
+    if (!jabatan) return false;
+    const j = jabatan.toLowerCase();
+    return j.includes('kepala sekolah') || j.includes('tata usaha') ||
+           j.includes('bendahara') || j.includes('kepsek') ||
+           (j.includes('tu') && j.includes('usaha'));
+}
+
+function renderStaffLoginDropdown() {
+    const select = document.getElementById("login-select-staff");
+    if(!select) return;
+    select.innerHTML = '<option value="">-- Pilih Nama (Jabatan) --</option>';
+    const staffTeachers = state.teachers.filter(t => isStaffJabatan(t.jabatan));
+    if (staffTeachers.length === 0) {
+        select.innerHTML = '<option value="">-- Tidak ada guru dengan jabatan Kepala Sekolah / Tata Usaha / Bendahara --</option>';
+        return;
+    }
+    staffTeachers.forEach(t => {
+        const jabStr = t.jabatan || 'Guru';
+        select.innerHTML += `<option value="${t.id}">${t.name} (${jabStr})</option>`;
+    });
+}
+
+document.getElementById("btn-login-staff").addEventListener('click', () => {
+    const sId = document.getElementById("login-select-staff").value;
+    if (!sId) return alert("Pilih nama Anda dari daftar!");
+    const sData = state.teachers.find(t => t.id === sId);
+    if (!isStaffJabatan(sData.jabatan)) return alert("Akun ini tidak memiliki akses laporan.");
+    
+    currentUser = { role: 'staff', data: sData };
+    sessionStorage.setItem('qr_presensi_session', JSON.stringify(currentUser));
+    checkSession();
+});
+
+document.getElementById("btn-logout-staff").addEventListener('click', () => {
+    currentUser = null;
+    sessionStorage.removeItem('qr_presensi_session');
+    checkSession();
+});
+
+let staffClockInterval = null;
+
+function initStaffView() {
+    if(!currentUser || currentUser.role !== 'staff') return;
+    
+    const t = currentUser.data;
+    document.getElementById("staff-name-display").textContent = t.name || '-';
+    document.getElementById("staff-jabatan-display").textContent = t.jabatan || '-';
+    
+    const dateEl = document.getElementById("staff-live-date");
+    if(dateEl) {
+        dateEl.textContent = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+    
+    // Set date input default hari ini
+    const dateInput = document.getElementById("staff-date");
+    if (dateInput && !dateInput.value) dateInput.value = getTodayDateStr();
+    
+    // Isi dropdown bulan laporan
+    populateStaffMonthSelect();
+    
+    renderStaffDailyReport();
+    renderStaffMonthlyReport();
+    
+    if(staffClockInterval) clearInterval(staffClockInterval);
+    staffClockInterval = setInterval(() => {
+        const el = document.getElementById("staff-live-date");
+        if(el) el.textContent = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }, 60000);
+}
+
+function populateStaffMonthSelect() {
+    const sel = document.getElementById("staff-report-month");
+    if(!sel) return;
+    sel.innerHTML = "";
+    const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+    const now = new Date();
+    for(let i = 0; i < 4; i++) {
+        let month = now.getMonth() - i;
+        let year = now.getFullYear();
+        if(month < 0) { month += 12; year -= 1; }
+        const val = year + '-' + ((month+1).toString().padStart(2,'0'));
+        const label = monthNames[month] + ' ' + year;
+        sel.innerHTML += '<option value="' + val + '">' + label + '</option>';
+    }
+}
+
+function renderStaffDailyReport() {
+    if(currentUser?.role !== 'staff') return;
+    const tbody = document.getElementById("staff-daily-body");
+    if(!tbody) return;
+    const tDate = document.getElementById("staff-date").value;
+    if(!tDate) return;
+    tbody.innerHTML = "";
+    
+    if(state.teachers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-muted);">Belum ada data guru.</td></tr>';
+        return;
+    }
+    
+    state.teachers.forEach(t => {
+        const log = state.attendance.find(a => a.teacherId === t.id && a.date === tDate);
+        const acuan = getAcuanHadir(t, new Date(tDate + 'T00:00:00'));
+        
+        const acuanHtml = '<div style="font-size:13px;"><strong>' + acuan.jam + '</strong><br><span style="color:var(--text-muted); font-size:11px;">' + acuan.mapel + '</span></div>';
+        
+        let timeInHtml = '<span style="color:var(--text-muted)">-</span>';
+        let timeOutHtml = '<span style="color:var(--text-muted)">-</span>';
+        let statusHtml = acuan.wajibHadir 
+            ? '<span class="badge" style="background:rgba(239,68,68,0.15); color:var(--color-danger); border-color:rgba(239,68,68,0.3);">Belum Hadir</span>'
+            : '<span class="badge" style="background:rgba(100,116,139,0.15); color:var(--text-muted);">Tidak Wajib</span>';
+        let ketHtml = '<span style="color:var(--text-muted)">-</span>';
+        
+        if (log) {
+            timeInHtml = '<strong style="color:var(--text-main);">' + log.timeIn.substring(0,5) + '</strong>';
+            timeOutHtml = log.timeOut ? '<strong style="color:var(--color-info);">' + log.timeOut.substring(0,5) + '</strong>' : '<span style="color:var(--text-muted)">Belum Pulang</span>';
+            
+            if(log.type === 'izin') statusHtml = '<span class="badge badge-info">Izin</span>';
+            else if(log.type === 'sakit') statusHtml = '<span class="badge badge-secondary">Sakit</span>';
+            else if(log.type === 'alpa') statusHtml = '<span class="badge badge-danger">Alpa</span>';
+            else if(log.statusIn === 'Terlambat') statusHtml = '<span class="badge badge-warning">Terlambat</span>';
+            else statusHtml = '<span class="badge badge-success">Tepat Waktu</span>';
+            
+            if(log.keterangan) ketHtml = '<span style="font-size:12px; color:var(--text-secondary);">' + log.keterangan + '</span>';
+        }
+        
+        tbody.innerHTML += '<tr><td><strong>' + t.name + '</strong></td><td>' + acuanHtml + '</td><td>' + timeInHtml + '</td><td>' + timeOutHtml + '</td><td class="text-center">' + statusHtml + '</td><td>' + ketHtml + '</td></tr>';
+    });
+}
+
+function renderStaffMonthlyReport() {
+    if(currentUser?.role !== 'staff') return;
+    const sel = document.getElementById("staff-report-month");
+    if(!sel) return;
+    const m = sel.value;
+    const tbody = document.getElementById("staff-monthly-body");
+    if(!tbody) return;
+    tbody.innerHTML = "";
+    
+    if(state.teachers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-muted);">Belum ada data guru.</td></tr>';
+        return;
+    }
+    
+    const summaryRows = buildReportSummary(m);
+    summaryRows.forEach(item => {
+        let skorColor = 'var(--text-muted)';
+        if (item.skor !== '-') {
+            if (item.skor >= 90) skorColor = 'var(--color-success)';
+            else if (item.skor >= 80) skorColor = 'var(--color-info)';
+            else if (item.skor >= 70) skorColor = 'var(--color-warning)';
+            else skorColor = 'var(--color-danger)';
+        }
+        
+        tbody.innerHTML += '<tr><td><strong>' + item.teacher.name + '</strong></td><td class="text-center"><strong>' + item.hadirTotal + '</strong></td><td class="text-center" style="color:var(--color-success)">' + item.tepat + '</td><td class="text-center" style="color:var(--color-warning)">' + item.lambat + '</td><td class="text-center" style="color:var(--color-info)">' + item.izinSakit + '</td><td class="text-center" style="color:var(--color-danger)">' + item.alpa + '</td><td class="text-right"><div style="font-weight:700; color:' + skorColor + ';">' + (item.skor === '-' ? '-' : item.skor + '/100') + '</div><div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">' + item.label + '</div></td></tr>';
+    });
+}
+
+document.getElementById("staff-date")?.addEventListener("change", renderStaffDailyReport);
+document.getElementById("staff-report-month")?.addEventListener("change", renderStaffMonthlyReport);
 
 // ==========================================================================
 // VIEW: GURU (MOBILE APP)
@@ -2944,6 +3126,9 @@ window.addEventListener("load", () => {
             } else if(currentUser.role === 'guru') {
                 navigateTo('view-guru');
                 initGuruView();
+            } else if(currentUser.role === 'staff') {
+                navigateTo('view-staff');
+                initStaffView();
             }
         };
         mql.addEventListener('change', onChange);

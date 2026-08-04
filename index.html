@@ -27,8 +27,9 @@
                 <p>Silakan masuk untuk melanjutkan</p>
             </div>
             
-            <div class="login-tabs">
+<div class="login-tabs">
                 <button class="login-tab-btn active" data-target="login-guru"><i class="fa-solid fa-user-tie"></i> Masuk Guru</button>
+                <button class="login-tab-btn" data-target="login-staff"><i class="fa-solid fa-file-signature"></i> Masuk Laporan</button>
                 <button class="login-tab-btn" data-target="login-admin"><i class="fa-solid fa-user-shield"></i> Masuk Admin</button>
             </div>
 
@@ -44,6 +45,20 @@
                     </div>
                     <button class="btn btn-primary btn-block" id="btn-login-guru" style="padding: 14px; font-size: 16px;">
                         Masuk sebagai Guru
+                    </button>
+                </div>
+
+                <!-- Tab Login Laporan (Kepala Sekolah / Tata Usaha / Bendahara) -->
+                <div id="login-staff" class="login-form-container">
+                    <p style="text-align:center; color:var(--text-secondary); margin-bottom: 20px; font-size:14px;">Pilih nama Anda untuk melihat laporan presensi (hanya lihat).</p>
+                    <div class="form-group">
+                        <label>Nama (Jabatan)</label>
+                        <select id="login-select-staff" class="login-input" style="padding: 12px 16px;">
+                            <!-- Opsi dari app.js -->
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-block" id="btn-login-staff" style="padding: 14px; font-size: 16px;">
+                        Masuk sebagai Laporan
                     </button>
                 </div>
 
@@ -271,6 +286,87 @@
                 <button class="btn btn-success btn-block" id="btn-close-success">Selesai</button>
             </div>
         </div>
+    </div>
+
+<!-- VIEW 2.5: STAFF LAPORAN (Kepala Sekolah / Tata Usaha / Bendahara) -->
+    <div id="view-staff" class="view-container app-wrapper">
+        <header class="app-header">
+            <div class="brand">
+                <div style="width: 52px; height: 52px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(91,134,182,0.4); padding: 5px; flex-shrink: 0;">
+                    <img src="logo.png" alt="Logo" style="width: 100%; height: 100%; object-fit: contain;">
+                </div>
+                <div class="brand-text">
+                    <h1>E_PGS<span>kabida</span></h1>
+                    <p>Laporan Presensi</p>
+                </div>
+            </div>
+            <div class="header-meta">
+                <div class="date-widget">
+                    <i class="fa-regular fa-calendar"></i>
+                    <span id="staff-live-date">-</span>
+                </div>
+                <button class="btn btn-secondary" id="btn-logout-staff" style="padding: 8px 16px;">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar
+                </button>
+            </div>
+        </header>
+
+        <main class="main-container" style="padding: 0;">
+            <aside class="admin-sidebar" style="border-right: 1px solid var(--border-glass);">
+                <div class="admin-profile">
+                    <div class="admin-avatar">
+                        <i class="fa-solid fa-file-signature"></i>
+                    </div>
+                    <div class="admin-info">
+                        <h3 id="staff-name-display">-</h3>
+                        <p id="staff-jabatan-display">-</p>
+                    </div>
+                </div>
+                <nav class="sidebar-nav">
+                    <ul>
+                        <li class="nav-item active" data-tab="staff-daily"><i class="fa-solid fa-calendar-day"></i><span>Laporan Harian</span></li>
+                        <li class="nav-item" data-tab="staff-monthly"><i class="fa-solid fa-calendar-alt"></i><span>Laporan Bulanan</span></li>
+                    </ul>
+                </nav>
+            </aside>
+
+            <div class="admin-content">
+                <!-- TAB: LAPORAN HARIAN -->
+                <div class="tab-content active" id="tab-staff-daily">
+                    <div class="content-header-row">
+                        <div class="content-header"><h2>Laporan Kehadiran Harian</h2><p>Rekapan presensi guru per tanggal.</p></div>
+                        <div class="export-actions">
+                            <input type="date" id="staff-date" class="date-input-styled">
+                        </div>
+                    </div>
+                    <div class="table-container glass-card">
+                        <table class="data-table">
+                            <thead><tr><th>Guru</th><th>Acuan</th><th>Jam Datang</th><th>Jam Pulang</th><th class="text-center">Status</th><th>Ket</th></tr></thead>
+                            <tbody id="staff-daily-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB: LAPORAN BULANAN -->
+                <div class="tab-content" id="tab-staff-monthly">
+                    <div class="content-header-row">
+                        <div class="content-header"><h2>Laporan Kehadiran Bulanan</h2><p>Rekapan presensi guru per bulan.</p></div>
+                        <div class="export-actions">
+                            <select id="staff-report-month"></select>
+                        </div>
+                    </div>
+                    <div class="glass-card" style="padding:12px 16px; margin-bottom:12px; font-size:13px; color:var(--text-secondary);">
+                        <strong>Keterangan Skor:</strong> 90 - 100 = Sangat Baik, 80 - 89 = Baik, 70 - 79 = Cukup, di bawah 70 = Perlu Perbaikan.
+                    </div>
+                    <div class="table-container glass-card">
+                        <table class="data-table">
+                            <thead><tr><th>Nama Guru</th><th class="text-center">Hadir</th><th class="text-center">Tepat</th><th class="text-center">Lambat</th><th class="text-center">Izin</th><th class="text-center">Alpa</th><th class="text-right">Skor & Penilaian</th></tr></thead>
+                            <tbody id="staff-monthly-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 
     <!-- VIEW 3: ADMIN DASHBOARD -->
