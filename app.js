@@ -338,6 +338,11 @@ loginTabs.forEach(btn => {
         e.target.classList.add('active');
         document.querySelectorAll('.login-form-container').forEach(c => c.classList.remove('active'));
         document.getElementById(e.target.getAttribute('data-target')).classList.add('active');
+        
+        // Bersihkan semua field password agar tidak tertinggal saat pindah tab login
+        document.querySelectorAll('input[type="password"]').forEach(input => {
+            input.value = '';
+        });
     });
 });
 
