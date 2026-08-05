@@ -1556,14 +1556,23 @@ window.refreshHeadmasterPhone = refreshHeadmasterPhone;
 // Kirim notifikasi izin/sakit via WhatsApp
 function sendIzinWhatsAppNotification(teacherName, type, keterangan, dateStr) {
     try {
-        const jenisLabel = type === 'sakit' ? 'SAKIT 🤒' : 'IZIN 📋';
+        const jenisLabel = type === 'sakit' ? 'SAKIT' : 'IZIN';
         const todayFormatted = dateStr || getTodayDateStr();
         const now = new Date();
         const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
         const dayName = getDayName(now);
         
-        // Format pesan WhatsApp
-        const message = `🔔 *NOTIFIKASI KETIDAKHADIRAN GURU*\n━━━━━━━━━━━━━━━━━━\n\n📋 *Jenis:* ${jenisLabel}\n👤 *Guru:* ${teacherName}\n📅 *Tanggal:* ${dayName}, ${todayFormatted}\n⏰ *Waktu Lapor:* ${timeStr}\n📝 *Alasan:* ${keterangan}\n\n━━━━━━━━━━━━━━━━━━\n_Pesan ini dikirim otomatis oleh sistem presensi E_PGSkabida_`;
+        // Format pesan WhatsApp yang bersih dan profesional
+        // Hindari karakter khusus (emoji, garis) yang bisa rusak saat dikirim
+        const message = 'NOTIFIKASI KETIDAKHADIRAN GURU\n' +
+            '----------------------------------------\n\n' +
+            'Jenis    : ' + jenisLabel + '\n' +
+            'Guru     : ' + teacherName + '\n' +
+            'Tanggal  : ' + dayName + ', ' + todayFormatted + '\n' +
+            'Jam      : ' + timeStr + '\n' +
+            'Alasan   : ' + keterangan + '\n\n' +
+            '----------------------------------------\n' +
+            'Pesan ini dikirim otomatis oleh sistem presensi E_PGSkabida';
         
         // Kirim ke Kepala Sekolah
         if (notifConfig.headmasterPhone) {
@@ -2305,16 +2314,16 @@ function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
             const centerX = (pageWidth - targetWidth) / 2;
             const centerY = (pageHeight - targetHeight) / 2;
 
-            // Buat logo blur kuat + transparan 12% (terlihat samar lebih blur, tidak menutupi teks)
-            // Gunakan 1 lapisan saja agar tidak terlihat dobel.
-            const blurredLogo = createTransparentImageData(logoCenter, 0.12, 20);
+            // Buat logo terlihat jelas (menonjol) namun tetap kamuflase (transparan)
+            // agar tidak menutupi teks laporan. Gunakan blur ringan 8px + opacity 15%.
+            const blurredLogo = createTransparentImageData(logoCenter, 0.15, 8);
             if (blurredLogo) {
                 // Gambar 1 lapisan saja agar tidak terlihat dobel.
                 // Blur asli sudah diterapkan via Canvas filter.
                 doc.addImage(blurredLogo, 'PNG', centerX, centerY, targetWidth, targetHeight);
             } else {
                 // Fallback: pakai GState opacity bila canvas/filter gagal
-                const blurOpacity = createPdfOpacityState(0.12);
+                const blurOpacity = createPdfOpacityState(0.15);
                 if (blurOpacity) {
                     doc.saveGraphicsState();
                     doc.setGState(blurOpacity);
