@@ -2274,54 +2274,52 @@ function createPdfOpacityState(opacity) {
     return null;
 }
 
+// Helper: buat versi transparan logo menggunakan Canvas (lebih andal daripada GState opacity)
+function createTransparentImageData(img, opacity) {
+    try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        if (canvas.width === 0 || canvas.height === 0) return null;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = opacity;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/png');
+    } catch (e) {
+        console.warn('Gagal membuat transparansi logo:', e);
+        return null;
+    }
+}
+
 function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
     try {
         if (logoCenter && logoCenter.width > 0) {
             // Gambar logo.png di tengah dengan ukuran besar (±85% halaman)
             // agar tampak sebagai background watermark sehalaman penuh yang halus.
-            // Karena jsPDF tidak punya filter blur native, efek blur dibuat dengan
-            // menggambar ulang gambar beberapa kali dengan offset yang lebih besar
-            // dan opacity sangat rendah agar tidak tampak pekat/lebat.
+            // Transparansi diterapkan langsung ke gambar via canvas sehingga
+            // dijamin terlihat di semua PDF viewer (tidak bergantung GState).
             const targetWidth = pageWidth * 0.85;
             const targetHeight = targetWidth * (logoCenter.height / Math.max(logoCenter.width, 1));
             const centerX = (pageWidth - targetWidth) / 2;
             const centerY = (pageHeight - targetHeight) / 2;
 
-            // Hanya 3 lapisan saja (2 offset blur + 1 tengah) dengan radius lebih besar
-            // agar terlihat blur halus tanpa menumpuk opacity menjadi pekat.
-            const offsets = [
-                [-1.2, -0.8],
-                [1.2, 0.8],
-                [0, 0] // lapisan tengah
-            ];
-            const blurOpacity = createPdfOpacityState(0.02); // ±2% per lapisan (total ±6%)
-
-            if (blurOpacity) {
-                doc.saveGraphicsState();
-                doc.setGState(blurOpacity);
+            // Buat logo transparan 10% per lapisan (total ±27% di tengah)
+            // agar terlihat jelas namun tetap halus dan tidak menutupi teks.
+            const transparentLogo = createTransparentImageData(logoCenter, 0.10);
+            if (transparentLogo) {
+                // Gambar 3 lapisan dengan offset kecil untuk efek blur halus
+                const offsets = [
+                    [-0.8, -0.5],
+                    [0.8, 0.5],
+                    [0, 0] // lapisan tengah
+                ];
                 offsets.forEach(([dx, dy]) => {
-                    doc.addImage(logoCenter, 'PNG', centerX + dx, centerY + dy, targetWidth, targetHeight);
+                    doc.addImage(transparentLogo, 'PNG', centerX + dx, centerY + dy, targetWidth, targetHeight);
                 });
-                doc.restoreGraphicsState();
             } else {
-                // Fallback: tetap gunakan opacity via setFillColor alpha jika GState tidak tersedia
-                doc.saveGraphicsState();
-                doc.setGState(new (window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.GState || jsPDF.GState)({ opacity: 0.02 }));
-                offsets.forEach(([dx, dy]) => {
-                    doc.addImage(logoCenter, 'PNG', centerX + dx, centerY + dy, targetWidth, targetHeight);
-                });
-                doc.restoreGraphicsState();
-            }
-        }
-    } catch (e) {
-        // Fallback jika logo gagal dimuat: gambar logo dengan opacity rendah bila ada.
-        try {
-            if (logoCenter && logoCenter.width > 0) {
-                const targetWidth = pageWidth * 0.85;
-                const targetHeight = targetWidth * (logoCenter.height / Math.max(logoCenter.width, 1));
-                const centerX = (pageWidth - targetWidth) / 2;
-                const centerY = (pageHeight - targetHeight) / 2;
-                const blurOpacity = createPdfOpacityState(0.02); // opasitas 2% (tipis)
+                // Fallback: pakai GState opacity bila canvas gagal
+                const blurOpacity = createPdfOpacityState(0.10);
                 if (blurOpacity) {
                     doc.saveGraphicsState();
                     doc.setGState(blurOpacity);
@@ -2330,6 +2328,17 @@ function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
                 if (blurOpacity) {
                     doc.restoreGraphicsState();
                 }
+            }
+        }
+    } catch (e) {
+        // Fallback jika semua gagal: gambar logo polos di tengah.
+        try {
+            if (logoCenter && logoCenter.width > 0) {
+                const targetWidth = pageWidth * 0.85;
+                const targetHeight = targetWidth * (logoCenter.height / Math.max(logoCenter.width, 1));
+                const centerX = (pageWidth - targetWidth) / 2;
+                const centerY = (pageHeight - targetHeight) / 2;
+                doc.addImage(logoCenter, 'PNG', centerX, centerY, targetWidth, targetHeight);
             }
         } catch (e2) {
             // abaikan
