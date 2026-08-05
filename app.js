@@ -2283,7 +2283,8 @@ function createPdfOpacityState(opacity) {
     return null;
 }
 
-// Helper: buat versi transparan + blur logo menggunakan Canvas (lebih andal daripada GState opacity)
+// Helper: buat versi transparan + colour washout logo menggunakan Canvas (lebih andal daripada GState opacity)
+// Tanpa blur - logo tetap tajam, namun warna dibuat pudar (washout) agar tidak menutupi teks.
 function createTransparentImageData(img, opacity, blurPx) {
     try {
         const canvas = document.createElement('canvas');
@@ -2292,13 +2293,32 @@ function createTransparentImageData(img, opacity, blurPx) {
         if (canvas.width === 0 || canvas.height === 0) return null;
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.filter = blurPx ? 'blur(' + blurPx + 'px)' : 'none';
+        
+        // Colour washout: gambarkan logo dengan brightness tinggi + saturasi rendah
+        // sehingga warnanya pucat/transparan (washout) tanpa membuat tepi kabur.
+        ctx.filter = 'brightness(1.30) saturate(0.15) opacity(' + opacity + ')';
+        if (blurPx && blurPx > 0) {
+            ctx.filter = 'brightness(1.30) saturate(0.15) blur(' + blurPx + 'px) opacity(' + opacity + ')';
+        }
         ctx.globalAlpha = opacity;
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         return canvas.toDataURL('image/png');
     } catch (e) {
-        console.warn('Gagal membuat transparansi logo:', e);
-        return null;
+        // Fallback jika filter tidak didukung: gunakan globalAlpha saja
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            if (canvas.width === 0 || canvas.height === 0) return null;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.globalAlpha = opacity;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            return canvas.toDataURL('image/png');
+        } catch (e2) {
+            console.warn('Gagal membuat transparansi logo:', e2);
+            return null;
+        }
     }
 }
 
@@ -2306,21 +2326,20 @@ function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
     try {
         if (logoCenter && logoCenter.width > 0) {
             // Gambar logo.png di tengah dengan ukuran besar (±85% halaman)
-            // agar tampak sebagai background watermark sehalaman penuh yang halus.
-            // Blur + transparansi diterapkan langsung ke gambar via Canvas filter
-            // sehingga blur asli (bukan dobel) dan dijamin terlihat di semua PDF viewer.
+            // agar tampak sebagai background watermark sehalaman penuh.
+            // TANPA BLUR - logo tampil tajam, namun warnanya dibuat pudar
+            // (colour washout) via Canvas filter agar tidak menutupi teks laporan.
             const targetWidth = pageWidth * 0.85;
             const targetHeight = targetWidth * (logoCenter.height / Math.max(logoCenter.width, 1));
             const centerX = (pageWidth - targetWidth) / 2;
             const centerY = (pageHeight - targetHeight) / 2;
 
-            // Buat logo terlihat jelas (menonjol) namun tetap kamuflase (transparan)
-            // agar tidak menutupi teks laporan. Gunakan blur ringan 8px + opacity 15%.
-            const blurredLogo = createTransparentImageData(logoCenter, 0.15, 8);
-            if (blurredLogo) {
+            // Buat versi transparan + colour washout (tanpa blur, blurPx=0)
+            // agar logo tetap tajam namun warnanya pucat/transparan.
+            const washedLogo = createTransparentImageData(logoCenter, 0.15, 0);
+            if (washedLogo) {
                 // Gambar 1 lapisan saja agar tidak terlihat dobel.
-                // Blur asli sudah diterapkan via Canvas filter.
-                doc.addImage(blurredLogo, 'PNG', centerX, centerY, targetWidth, targetHeight);
+                doc.addImage(washedLogo, 'PNG', centerX, centerY, targetWidth, targetHeight);
             } else {
                 // Fallback: pakai GState opacity bila canvas/filter gagal
                 const blurOpacity = createPdfOpacityState(0.15);
