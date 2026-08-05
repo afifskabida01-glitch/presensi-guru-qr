@@ -57,6 +57,10 @@
                             <!-- Opsi dari app.js -->
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="login-staff-pass" class="login-input" placeholder="Masukkan password laporan">
+                    </div>
                     <button class="btn btn-primary btn-block" id="btn-login-staff" style="padding: 14px; font-size: 16px;">
                         Masuk sebagai Laporan
                     </button>
@@ -675,6 +679,10 @@
                     <div class="form-group"><label>No. HP (WhatsApp)</label>
                         <input type="text" id="teacher-nohp" placeholder="08xxxxxxxxxx" pattern="08[0-9]{8,}" style="width:100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass-light); color: var(--text-main); padding: 10px 16px; border-radius: var(--radius-sm); font-family: inherit;">
                         <small style="color: var(--text-muted); font-size: 11px;">Gunakan format 08xxx (contoh: 08123456789)</small>
+                    </div>
+                    <div class="form-group"><label>Password Laporan</label>
+                        <input type="password" id="teacher-password" placeholder="Password untuk akses laporan (staff)" style="width:100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass-light); color: var(--text-main); padding: 10px 16px; border-radius: var(--radius-sm); font-family: inherit;">
+                        <small style="color: var(--text-muted); font-size: 11px;">Diperlukan untuk jabatan Kepala Sekolah / Tata Usaha / Bendahara saat masuk laporan.</small>
                     </div>
                     <div class="form-row">
                         <div class="form-group"><label>Hari Piket</label><select id="teacher-picket"><option value="Tidak Ada">Tidak Ada</option><option value="Setiap Hari">Setiap Hari</option><option value="Minggu">Minggu</option><option value="Senin">Senin</option><option value="Selasa">Selasa</option><option value="Rabu">Rabu</option><option value="Kamis">Kamis</option><option value="Jumat">Jumat</option><option value="Sabtu">Sabtu</option></select></div>

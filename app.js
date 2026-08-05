@@ -426,8 +426,17 @@ document.getElementById("btn-login-staff").addEventListener('click', () => {
     const sData = state.teachers.find(t => t.id === sId);
     if (!isStaffJabatan(sData.jabatan)) return alert("Akun ini tidak memiliki akses laporan.");
     
+    // Validasi password laporan
+    const passInput = document.getElementById("login-staff-pass");
+    const inputPass = passInput ? passInput.value : "";
+    const expectedPass = sData.password || "laporan123"; // Default jika belum diatur
+    if (!inputPass) return alert("Masukkan password laporan!");
+    if (inputPass !== expectedPass) return alert("Password laporan salah!");
+    
     currentUser = { role: 'staff', data: sData };
     sessionStorage.setItem('qr_presensi_session', JSON.stringify(currentUser));
+    // Kosongkan password setelah sukses login
+    if (passInput) passInput.value = '';
     checkSession();
 });
 
@@ -1794,12 +1803,14 @@ document.getElementById("form-teacher").addEventListener("submit", (e) => {
     const id = document.getElementById("teacher-id").value || "T" + Date.now();
     const jabatanEl = document.getElementById("teacher-jabatan");
     const nohpEl = document.getElementById("teacher-nohp");
+    const passEl = document.getElementById("teacher-password");
     const newData = {
         id,
         name: document.getElementById("teacher-name").value,
         nip: document.getElementById("teacher-nip").value,
         jabatan: jabatanEl ? jabatanEl.value : 'Guru Mapel',
         noHp: nohpEl ? nohpEl.value.trim() : '',
+        password: passEl ? passEl.value.trim() : '',
         picketDay: document.getElementById("teacher-picket").value,
         picketCheckIn: document.getElementById("teacher-checkin").value
     };
@@ -1814,8 +1825,10 @@ window.editTeacher = function(id) {
     document.getElementById("teacher-nip").value = t.nip;
     const jabatanEl = document.getElementById("teacher-jabatan");
     const nohpEl = document.getElementById("teacher-nohp");
+    const passEl = document.getElementById("teacher-password");
     if (jabatanEl) jabatanEl.value = t.jabatan || 'Guru Mapel';
     if (nohpEl) nohpEl.value = t.noHp || '';
+    if (passEl) passEl.value = t.password || '';
     document.getElementById("teacher-picket").value = t.picketDay;
     document.getElementById("teacher-checkin").value = t.picketCheckIn || "07:00";
     teacherModal.classList.remove("hidden");
