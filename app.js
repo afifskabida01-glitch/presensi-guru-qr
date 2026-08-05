@@ -2296,9 +2296,9 @@ function createTransparentImageData(img, opacity, blurPx) {
         
         // Colour washout: gambarkan logo dengan brightness lebih rendah + saturasi rendah
         // sehingga warnanya pucat/transparan (washout) dan tidak menutupi teks laporan.
-        ctx.filter = 'brightness(0.9) saturate(0.15) opacity(' + opacity + ')';
+        ctx.filter = 'brightness(1.0) saturate(0.15) opacity(' + opacity + ')';
         if (blurPx && blurPx > 0) {
-            ctx.filter = 'brightness(0.9) saturate(0.15) blur(' + blurPx + 'px) opacity(' + opacity + ')';
+            ctx.filter = 'brightness(1.0) saturate(0.15) blur(' + blurPx + 'px) opacity(' + opacity + ')';
         }
         ctx.globalAlpha = opacity;
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -2336,13 +2336,13 @@ function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
 
             // Buat versi transparan + colour washout (tanpa blur, blurPx=0)
             // agar logo tetap tajam namun warnanya pucat/transparan.
-            const washedLogo = createTransparentImageData(logoCenter, 0.15, 0);
+            const washedLogo = createTransparentImageData(logoCenter, 0.19, 0);
             if (washedLogo) {
                 // Gambar 1 lapisan saja agar tidak terlihat dobel.
                 doc.addImage(washedLogo, 'PNG', centerX, centerY, targetWidth, targetHeight);
             } else {
                 // Fallback: pakai GState opacity bila canvas/filter gagal
-                const blurOpacity = createPdfOpacityState(0.15);
+                const blurOpacity = createPdfOpacityState(0.19);
                 if (blurOpacity) {
                     doc.saveGraphicsState();
                     doc.setGState(blurOpacity);
