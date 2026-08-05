@@ -2272,6 +2272,23 @@ function exportReportCsv() {
 }
 
 
+// Helper: bersihkan karakter yang tidak didukung font WinAnsi/Helvetica di jsPDF
+// (emoji, simbol Unicode, karakter kontrol) agar tidak menjadi tulisan blepotan/mojibake.
+function sanitizePdfText(text) {
+    if (!text) return text;
+    // Normalisasi ke string lalu ganti karakter yang tidak didukung dengan spasi
+    let cleaned = String(text);
+    // Ganti emoji/simbol yang umum jadi alternatif teks
+    cleaned = cleaned.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, '');
+    // Hapus karakter kontrol & karakter di luar WinAnsi (Latin-1)
+    cleaned = cleaned.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u00A0\u00AD\u2000-\u206F\uFFFD]/g, '');
+    // Ganti karakter aneh/rusak (mojibake) dengan spasi
+    cleaned = cleaned.replace(/[^\x00-\x7F\xA0-\xFF]/g, ' ');
+    // Bersihkan spasi berlebih
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    return cleaned;
+}
+
 function createPdfOpacityState(opacity) {
     const GStateCtor = window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.GState;
     if (GStateCtor) {
@@ -2521,11 +2538,12 @@ function exportReportPdf() {
             const latestLog = [...item.logs].sort((a, b) =>
                 (b.date + (b.timeIn || '')).localeCompare(a.date + (a.timeIn || ''))
             )[0];
-            const lastNote = latestLog
+            const lastNoteRaw = latestLog
                 ? (latestLog.type === 'hadir'
                     ? (latestLog.statusIn || 'Hadir')
                     : latestLog.type.charAt(0).toUpperCase() + latestLog.type.slice(1))
                 : '-';
+            const lastNote = sanitizePdfText(lastNoteRaw);
             const noteLines = doc.splitTextToSize(lastNote || '-', 52);
             const rowHeight = Math.max(7, 5.4 + ((noteLines.length - 1) * 3.6));
 
@@ -2814,7 +2832,7 @@ function exportIzinSakitPdf() {
         y += 10;
     } else {
         izinSakitLogs.forEach((log, index) => {
-            const ketText = (log.keterangan || '-').trim();
+            const ketText = sanitizePdfText((log.keterangan || '-').trim());
             doc.setFont('Helvetica', 'normal');
             doc.setFontSize(7.5);
             const ketLines = doc.splitTextToSize(ketText, 56);
