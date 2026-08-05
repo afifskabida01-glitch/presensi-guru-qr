@@ -533,7 +533,18 @@
                 <!-- TAB: PENGATURAN -->
                 <div class="tab-content" id="tab-schedule">
                     <div class="content-header"><h2>Pengaturan & Sistem</h2></div>
-                    
+
+                    <!-- Jadwal Pelajaran (PNG View + Touchscreen) -->
+                    <div class="glass-card" style="padding: 20px; border-color: rgba(91, 134, 182, 0.25); margin-bottom: 16px;">
+                        <h3 style="color: var(--color-info);"><i class="fa-solid fa-calendar-days"></i> Jadwal Pelajaran</h3>
+                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+                            Lihat gambar jadwal pelajaran. Dukung zoom (cubit dua jari) dan geser untuk detail.
+                        </p>
+                        <button class="btn btn-primary" id="btn-open-sistem-jadwal" style="margin-top: 4px;">
+                            <i class="fa-solid fa-image"></i> Lihat Jadwal Pelajaran
+                        </button>
+                    </div>
+
 <!-- Notifikasi WhatsApp Settings -->
                     <div class="settings-card glass-card" style="border-color: rgba(16, 185, 129, 0.25); margin-bottom: 16px;">
                         <h3 style="color: var(--color-success);"><i class="fa-brands fa-whatsapp"></i> Notifikasi WhatsApp Izin / Sakit</h3>
@@ -608,6 +619,41 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- MODAL JADWAL PELAJARAN (Pengaturan & Sistem) -->
+    <div class="modal-overlay hidden" id="jadwal-sistem-modal" aria-hidden="true">
+        <div class="modal-card glass-card animate-modal" style="max-width: 860px; width: 96vw;">
+            <div class="modal-header">
+                <h3>Jadwal Pelajaran</h3>
+                <button class="btn-close-modal" id="btn-close-jadwal-sistem-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 16px 20px 20px;">
+                <div class="rundown-zoom-controls">
+                    <div class="rundown-zoom-label">
+                        <i class="fa-solid fa-image"></i> Menampilkan jadwal pelajaran (sentuh layar untuk zoom & geser).
+                    </div>
+                    <div class="rundown-zoom-buttons">
+                        <button class="btn-zoom" id="btn-sistem-jadwal-zoom-out" title="Perkecil">
+                            <i class="fa-solid fa-search-minus"></i>
+                        </button>
+                        <span class="rundown-zoom-level" id="sistem-jadwal-zoom-display">100%</span>
+                        <button class="btn-zoom" id="btn-sistem-jadwal-zoom-in" title="Perbesar">
+                            <i class="fa-solid fa-search-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="sistem-jadwal-image-wrapper" style="border:1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow:hidden; background: rgba(0,0,0,0.25); min-height: 200px; position: relative; touch-action: none;">
+                    <img id="sistem-jadwal-png-image" src="jadwal_pelajaran_2026_27-1.png" alt="Jadwal Pelajaran" style="width: 100%; height: auto; display: block; user-select: none; -webkit-user-select: none; -webkit-user-drag: none;" onerror="this.parentElement.innerHTML='<div style=\'padding:40px; text-align:center; color:var(--text-muted);\'><i class=\'fa-solid fa-image\' style=\'font-size:40px; margin-bottom:12px; display:block;\'></i>Gambar jadwal belum tersedia. Silakan unggah file <strong>jadwal_pelajaran_2026_27-1.png</strong> di folder yang sama.</div>'">
+                </div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">
+                    Geser gambar dengan jari/mouse untuk melihat detail. Gunakan tombol zoom (+/-) atau cubit dua jari (pinch) untuk zoom.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="btn-close-jadwal-sistem-modal-2"><i class="fa-solid fa-check"></i> Selesai</button>
+            </div>
+        </div>
     </div>
 
     <!-- ALL MODALS (Admin) -->

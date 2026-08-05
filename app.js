@@ -3144,6 +3144,255 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================================================
+// JADWAL PELAJARAN MODAL (Pengaturan & Sistem) - Zoom, Pan & Touchscreen
+// ==========================================================================
+let sistemJadwalZoomLevel = 100;
+let sistemJadwalPanX = 0;
+let sistemJadwalPanY = 0;
+const SISTEM_JADWAL_ZOOM_MIN = 30;
+const SISTEM_JADWAL_ZOOM_MAX = 300;
+const SISTEM_JADWAL_ZOOM_STEP = 15;
+
+function updateSistemJadwalZoom() {
+    const img = document.getElementById('sistem-jadwal-png-image');
+    const display = document.getElementById('sistem-jadwal-zoom-display');
+    if (img) {
+        img.style.transform = `translate(${sistemJadwalPanX}px, ${sistemJadwalPanY}px) scale(${sistemJadwalZoomLevel / 100})`;
+        img.style.transformOrigin = '0 0';
+    }
+    if (display) {
+        display.textContent = sistemJadwalZoomLevel + '%';
+    }
+}
+
+function clampSistemJadwalPan() {
+    const img = document.getElementById('sistem-jadwal-png-image');
+    const wrapper = document.getElementById('sistem-jadwal-image-wrapper');
+    if (!img || !wrapper) return;
+    
+    const imgW = img.naturalWidth || img.width || 400;
+    const imgH = img.naturalHeight || img.height || 200;
+    const scale = sistemJadwalZoomLevel / 100;
+    const scaledW = imgW * scale;
+    const scaledH = imgH * scale;
+    const wrapperW = wrapper.clientWidth;
+    const wrapperH = wrapper.clientHeight;
+    
+    const maxX = Math.max(0, (scaledW - wrapperW) / 2) + 50;
+    const minX = -maxX;
+    const maxY = Math.max(0, (scaledH - wrapperH) / 2) + 50;
+    const minY = -maxY;
+    
+    sistemJadwalPanX = Math.max(minX, Math.min(maxX, sistemJadwalPanX));
+    sistemJadwalPanY = Math.max(minY, Math.min(maxY, sistemJadwalPanY));
+    
+    if (scaledW <= wrapperW) sistemJadwalPanX = 0;
+    if (scaledH <= wrapperH) sistemJadwalPanY = 0;
+}
+
+// Touch pan & pinch state
+let sistemJadwalTouchState = {
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    panStartX: 0,
+    panStartY: 0,
+    lastPinchDist: 0,
+    lastPinchZoom: 100
+};
+
+function setupSistemJadwalTouchHandlers() {
+    const wrapper = document.getElementById('sistem-jadwal-image-wrapper');
+    if (!wrapper) return;
+
+    // --- Mouse drag support (desktop) ---
+    wrapper.addEventListener('mousedown', (e) => {
+        if (sistemJadwalZoomLevel <= 100) return;
+        sistemJadwalTouchState.isDragging = true;
+        sistemJadwalTouchState.startX = e.clientX;
+        sistemJadwalTouchState.startY = e.clientY;
+        sistemJadwalTouchState.panStartX = sistemJadwalPanX;
+        sistemJadwalTouchState.panStartY = sistemJadwalPanY;
+        wrapper.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!sistemJadwalTouchState.isDragging) return;
+        const dx = e.clientX - sistemJadwalTouchState.startX;
+        const dy = e.clientY - sistemJadwalTouchState.startY;
+        sistemJadwalPanX = sistemJadwalTouchState.panStartX + dx;
+        sistemJadwalPanY = sistemJadwalTouchState.panStartY + dy;
+        clampSistemJadwalPan();
+        updateSistemJadwalZoom();
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (sistemJadwalTouchState.isDragging) {
+            sistemJadwalTouchState.isDragging = false;
+            const w = document.getElementById('sistem-jadwal-image-wrapper');
+            if (w) w.style.cursor = sistemJadwalZoomLevel > 100 ? 'grab' : 'default';
+        }
+    });
+
+    // --- Touch support (mobile touchscreen) ---
+    let touchStartTime = 0;
+    let touchMoved = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    wrapper.addEventListener('touchstart', (e) => {
+        const touches = e.touches;
+        touchMoved = false;
+        touchStartTime = Date.now();
+
+        if (touches.length === 1 && sistemJadwalZoomLevel > 100) {
+            e.preventDefault();
+            sistemJadwalTouchState.isDragging = true;
+            touchStartX = touches[0].clientX;
+            touchStartY = touches[0].clientY;
+            sistemJadwalTouchState.startX = touches[0].clientX;
+            sistemJadwalTouchState.startY = touches[0].clientY;
+            sistemJadwalTouchState.panStartX = sistemJadwalPanX;
+            sistemJadwalTouchState.panStartY = sistemJadwalPanY;
+        } else if (touches.length === 2) {
+            e.preventDefault();
+            sistemJadwalTouchState.isDragging = false;
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            sistemJadwalTouchState.lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+            sistemJadwalTouchState.lastPinchZoom = sistemJadwalZoomLevel;
+        }
+    }, { passive: false });
+
+    wrapper.addEventListener('touchmove', (e) => {
+        const touches = e.touches;
+        touchMoved = true;
+
+        if (touches.length === 1 && sistemJadwalTouchState.isDragging) {
+            e.preventDefault();
+            const dx = touches[0].clientX - sistemJadwalTouchState.startX;
+            const dy = touches[0].clientY - sistemJadwalTouchState.startY;
+            sistemJadwalPanX = sistemJadwalTouchState.panStartX + dx;
+            sistemJadwalPanY = sistemJadwalTouchState.panStartY + dy;
+            clampSistemJadwalPan();
+            updateSistemJadwalZoom();
+        } else if (touches.length === 2) {
+            e.preventDefault();
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (sistemJadwalTouchState.lastPinchDist > 0) {
+                const scaleFactor = dist / sistemJadwalTouchState.lastPinchDist;
+                sistemJadwalZoomLevel = Math.round(sistemJadwalTouchState.lastPinchZoom * scaleFactor);
+                sistemJadwalZoomLevel = Math.max(SISTEM_JADWAL_ZOOM_MIN, Math.min(SISTEM_JADWAL_ZOOM_MAX, sistemJadwalZoomLevel));
+                clampSistemJadwalPan();
+                updateSistemJadwalZoom();
+            }
+        }
+    }, { passive: false });
+
+    wrapper.addEventListener('touchend', (e) => {
+        sistemJadwalTouchState.lastPinchDist = 0;
+        sistemJadwalTouchState.isDragging = false;
+        
+        if (!touchMoved && Date.now() - touchStartTime < 300) {
+            e.preventDefault();
+            if (sistemJadwalZoomLevel <= 100) {
+                sistemJadwalZoomLevel = 200;
+                if (e.changedTouches.length > 0) {
+                    const wrapperRect = wrapper.getBoundingClientRect();
+                    const touchX = e.changedTouches[0].clientX - wrapperRect.left;
+                    const touchY = e.changedTouches[0].clientY - wrapperRect.top;
+                    const scale = sistemJadwalZoomLevel / 100;
+                    const wrapperW = wrapperRect.width;
+                    const wrapperH = wrapperRect.height;
+                    sistemJadwalPanX = -(touchX * scale - wrapperW / 2);
+                    sistemJadwalPanY = -(touchY * scale - wrapperH / 2);
+                }
+            } else {
+                sistemJadwalZoomLevel = 100;
+                sistemJadwalPanX = 0;
+                sistemJadwalPanY = 0;
+            }
+            clampSistemJadwalPan();
+            updateSistemJadwalZoom();
+        }
+    });
+}
+
+// Open/Close modal handlers
+function openSistemJadwalModal() {
+    const m = document.getElementById('jadwal-sistem-modal');
+    if (!m) return;
+    sistemJadwalZoomLevel = 100;
+    sistemJadwalPanX = 0;
+    sistemJadwalPanY = 0;
+    updateSistemJadwalZoom();
+    m.classList.remove('hidden');
+    m.setAttribute('aria-hidden', 'false');
+}
+
+function closeSistemJadwalModal() {
+    const m = document.getElementById('jadwal-sistem-modal');
+    if (!m) return;
+    sistemJadwalZoomLevel = 100;
+    sistemJadwalPanX = 0;
+    sistemJadwalPanY = 0;
+    updateSistemJadwalZoom();
+    m.classList.add('hidden');
+    m.setAttribute('aria-hidden', 'true');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const openBtn = document.getElementById('btn-open-sistem-jadwal');
+    if (openBtn) {
+        openBtn.addEventListener('click', openSistemJadwalModal);
+    }
+
+    const close1 = document.getElementById('btn-close-jadwal-sistem-modal');
+    const close2 = document.getElementById('btn-close-jadwal-sistem-modal-2');
+    if (close1) close1.addEventListener('click', closeSistemJadwalModal);
+    if (close2) close2.addEventListener('click', closeSistemJadwalModal);
+
+    const zoomInBtn = document.getElementById('btn-sistem-jadwal-zoom-in');
+    const zoomOutBtn = document.getElementById('btn-sistem-jadwal-zoom-out');
+    
+    if (zoomInBtn) {
+        zoomInBtn.addEventListener('click', () => {
+            sistemJadwalZoomLevel = Math.min(SISTEM_JADWAL_ZOOM_MAX, sistemJadwalZoomLevel + SISTEM_JADWAL_ZOOM_STEP);
+            clampSistemJadwalPan();
+            updateSistemJadwalZoom();
+        });
+    }
+    
+    if (zoomOutBtn) {
+        zoomOutBtn.addEventListener('click', () => {
+            sistemJadwalZoomLevel = Math.max(SISTEM_JADWAL_ZOOM_MIN, sistemJadwalZoomLevel - SISTEM_JADWAL_ZOOM_STEP);
+            clampSistemJadwalPan();
+            updateSistemJadwalZoom();
+        });
+    }
+    
+    setupSistemJadwalTouchHandlers();
+
+    // Reset zoom when modal opens
+    const modal = document.getElementById('jadwal-sistem-modal');
+    if (modal) {
+        const observer = new MutationObserver(() => {
+            if (!modal.classList.contains('hidden')) {
+                sistemJadwalZoomLevel = 100;
+                sistemJadwalPanX = 0;
+                sistemJadwalPanY = 0;
+                updateSistemJadwalZoom();
+            }
+        });
+        observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+    }
+});
+
+// ==========================================================================
 // PAGE VISIBILITY API — Refresh notifikasi saat tab kembali aktif
 // ==========================================================================
 document.addEventListener('visibilitychange', () => {
