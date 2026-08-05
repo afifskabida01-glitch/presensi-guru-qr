@@ -2274,8 +2274,8 @@ function createPdfOpacityState(opacity) {
     return null;
 }
 
-// Helper: buat versi transparan logo menggunakan Canvas (lebih andal daripada GState opacity)
-function createTransparentImageData(img, opacity) {
+// Helper: buat versi transparan + blur logo menggunakan Canvas (lebih andal daripada GState opacity)
+function createTransparentImageData(img, opacity, blurPx) {
     try {
         const canvas = document.createElement('canvas');
         canvas.width = img.naturalWidth || img.width;
@@ -2283,6 +2283,7 @@ function createTransparentImageData(img, opacity) {
         if (canvas.width === 0 || canvas.height === 0) return null;
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.filter = blurPx ? 'blur(' + blurPx + 'px)' : 'none';
         ctx.globalAlpha = opacity;
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         return canvas.toDataURL('image/png');
@@ -2297,29 +2298,23 @@ function drawWatermark(doc, pageWidth, pageHeight, logoCenter) {
         if (logoCenter && logoCenter.width > 0) {
             // Gambar logo.png di tengah dengan ukuran besar (±85% halaman)
             // agar tampak sebagai background watermark sehalaman penuh yang halus.
-            // Transparansi diterapkan langsung ke gambar via canvas sehingga
-            // dijamin terlihat di semua PDF viewer (tidak bergantung GState).
+            // Blur + transparansi diterapkan langsung ke gambar via Canvas filter
+            // sehingga blur asli (bukan dobel) dan dijamin terlihat di semua PDF viewer.
             const targetWidth = pageWidth * 0.85;
             const targetHeight = targetWidth * (logoCenter.height / Math.max(logoCenter.width, 1));
             const centerX = (pageWidth - targetWidth) / 2;
             const centerY = (pageHeight - targetHeight) / 2;
 
-            // Buat logo transparan 10% per lapisan (total ±27% di tengah)
-            // agar terlihat jelas namun tetap halus dan tidak menutupi teks.
-            const transparentLogo = createTransparentImageData(logoCenter, 0.10);
-            if (transparentLogo) {
-                // Gambar 3 lapisan dengan offset kecil untuk efek blur halus
-                const offsets = [
-                    [-0.8, -0.5],
-                    [0.8, 0.5],
-                    [0, 0] // lapisan tengah
-                ];
-                offsets.forEach(([dx, dy]) => {
-                    doc.addImage(transparentLogo, 'PNG', centerX + dx, centerY + dy, targetWidth, targetHeight);
-                });
+            // Buat logo blur kuat + transparan 12% (terlihat samar lebih blur, tidak menutupi teks)
+            // Gunakan 1 lapisan saja agar tidak terlihat dobel.
+            const blurredLogo = createTransparentImageData(logoCenter, 0.12, 20);
+            if (blurredLogo) {
+                // Gambar 1 lapisan saja agar tidak terlihat dobel.
+                // Blur asli sudah diterapkan via Canvas filter.
+                doc.addImage(blurredLogo, 'PNG', centerX, centerY, targetWidth, targetHeight);
             } else {
-                // Fallback: pakai GState opacity bila canvas gagal
-                const blurOpacity = createPdfOpacityState(0.10);
+                // Fallback: pakai GState opacity bila canvas/filter gagal
+                const blurOpacity = createPdfOpacityState(0.12);
                 if (blurOpacity) {
                     doc.saveGraphicsState();
                     doc.setGState(blurOpacity);
