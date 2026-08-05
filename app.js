@@ -2294,11 +2294,11 @@ function createTransparentImageData(img, opacity, blurPx) {
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Colour washout: gambarkan logo dengan brightness tinggi + saturasi rendah
-        // sehingga warnanya pucat/transparan (washout) tanpa membuat tepi kabur.
-        ctx.filter = 'brightness(1.30) saturate(0.15) opacity(' + opacity + ')';
+        // Colour washout: gambarkan logo dengan brightness lebih rendah + saturasi rendah
+        // sehingga warnanya pucat/transparan (washout) dan tidak menutupi teks laporan.
+        ctx.filter = 'brightness(0.9) saturate(0.15) opacity(' + opacity + ')';
         if (blurPx && blurPx > 0) {
-            ctx.filter = 'brightness(1.30) saturate(0.15) blur(' + blurPx + 'px) opacity(' + opacity + ')';
+            ctx.filter = 'brightness(0.9) saturate(0.15) blur(' + blurPx + 'px) opacity(' + opacity + ')';
         }
         ctx.globalAlpha = opacity;
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
