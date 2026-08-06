@@ -2107,21 +2107,38 @@ document.getElementById("form-attendance").addEventListener("submit", (e) => {
     saveData("attendance", logId, newData).then(() => attModal.classList.add("hidden"));
 });
 
-// ADMIN: KELOLA ADMIN
+// ADMIN: KELOLA ADMIN (Dasbor Admin + Dasbor Masuk Laporan)
 function renderAdminsTable() {
     if(currentUser?.role !== 'admin') return;
     const tbody = document.getElementById("admins-list-body");
     tbody.innerHTML = "";
-    // Tampilkan data guru yang memiliki akses laporan (Kepala Sekolah / Tata Usaha / Bendahara)
+
+    function passCode(p) {
+        return p ? '<code style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px; font-size:12px; color:var(--color-info); user-select:all;">' + p + '</code>' : '<span style="color:var(--text-muted); font-style:italic;">Belum diatur</span>';
+    }
+
+    let rows = "";
+
+    // Bagian 1: Akun Dasbor Admin (dari admins)
+    state.admins.forEach(a => {
+        const jabatan = (a.role === 'superadmin') ? 'Super Admin' : 'Admin';
+        const sudahAda = rows.indexOf("admin" + a.username) !== -1;
+        if (sudahAda) return;
+        let deleteBtn = a.username !== 'admin' ? '<button class="btn-icon" title="Hapus" onclick="deleteData(\'admins\', \'' + a.id + '\')"><i class="fa-solid fa-trash"></i></button>' : '';
+        rows += '<tr data-acarkey="admin' + a.username + '"><td><strong>' + a.username + '</strong></td><td>' + jabatan + '</td><td>' + passCode(a.password) + '</td><td><span class="badge badge-primary" style="background:rgba(91,134,182,0.15); color:var(--color-info); border-color:rgba(91,134,182,0.3);">Dasbor Admin</span></td><td><div class="action-buttons">' + deleteBtn + '</div></td></tr>';
+    });
+
+    // Bagian 2: Akun Dasbor Masuk Laporan (guru dengan jabatan staff)
     const staffTeachers = state.teachers.filter(t => isStaffJabatan(t.jabatan));
-    if (staffTeachers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:16px; color:var(--text-muted);">Belum ada guru dengan jabatan Kepala Sekolah, Tata Usaha, atau Bendahara. Tambahkan di tab <strong>Data Guru</strong> dan atur jabatan serta password laporannya.</td></tr>';
+    staffTeachers.forEach(t => {
+        rows += '<tr data-acarkey="laporan' + t.id + '"><td><strong>' + t.name + '</strong></td><td><span class="badge badge-info">' + (t.jabatan || '-') + '</span></td><td>' + passCode(t.password) + '</td><td><span class="badge" style="background:rgba(16,185,129,0.15); color:var(--color-success); border-color:rgba(16,185,129,0.3);">Dasbor Laporan</span></td><td><div class="action-buttons"><button class="btn-icon" title="Edit" onclick="editTeacher(\'' + t.id + '\')"><i class="fa-solid fa-pen"></i></button></div></td></tr>';
+    });
+
+    if (rows === "") {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:16px; color:var(--text-muted);">Belum ada data. Tambahkan admin di tombol <strong>Tambah Admin</strong>, atau tambahkan guru dengan jabatan Kepala Sekolah / Tata Usaha / Bendahara di tab <strong>Data Guru</strong>.</td></tr>';
         return;
     }
-    staffTeachers.forEach(t => {
-        const passHtml = t.password ? '<code style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px; font-size:12px; color:var(--color-info); user-select:all;">' + t.password + '</code>' : '<span style="color:var(--text-muted); font-style:italic;">Belum diatur</span>';
-        tbody.innerHTML += '<tr><td><strong>' + t.name + '</strong></td><td><span class="badge badge-info">' + (t.jabatan || '-') + '</span></td><td>' + passHtml + '</td><td><div class="action-buttons"><button class="btn-icon" title="Edit" onclick="editTeacher(\'' + t.id + '\')"><i class="fa-solid fa-pen"></i></button></div></td></tr>';
-    });
+    tbody.innerHTML = rows;
 }
 const adminModal = document.getElementById("admin-account-modal");
 document.getElementById("btn-add-admin-modal").addEventListener("click", () => adminModal.classList.remove("hidden"));
