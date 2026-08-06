@@ -2112,10 +2112,15 @@ function renderAdminsTable() {
     if(currentUser?.role !== 'admin') return;
     const tbody = document.getElementById("admins-list-body");
     tbody.innerHTML = "";
-    state.admins.forEach(a => {
-        let btn = a.username !== 'admin' ? '<button class="btn-icon" onclick="deleteData(\'admins\', \'' + a.id + '\')"><i class="fa-solid fa-trash"></i></button>' : '';
-        const passHtml = a.password ? '<code style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px; font-size:12px; color:var(--color-info); user-select:all;">' + a.password + '</code>' : '<span style="color:var(--text-muted)">-</span>';
-        tbody.innerHTML += '<tr><td>' + a.username + '</td><td>' + passHtml + '</td><td><span class="badge badge-info">' + a.role + '</span></td><td><div class="action-buttons">' + btn + '</div></td></tr>';
+    // Tampilkan data guru yang memiliki akses laporan (Kepala Sekolah / Tata Usaha / Bendahara)
+    const staffTeachers = state.teachers.filter(t => isStaffJabatan(t.jabatan));
+    if (staffTeachers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:16px; color:var(--text-muted);">Belum ada guru dengan jabatan Kepala Sekolah, Tata Usaha, atau Bendahara. Tambahkan di tab <strong>Data Guru</strong> dan atur jabatan serta password laporannya.</td></tr>';
+        return;
+    }
+    staffTeachers.forEach(t => {
+        const passHtml = t.password ? '<code style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px; font-size:12px; color:var(--color-info); user-select:all;">' + t.password + '</code>' : '<span style="color:var(--text-muted); font-style:italic;">Belum diatur</span>';
+        tbody.innerHTML += '<tr><td><strong>' + t.name + '</strong></td><td><span class="badge badge-info">' + (t.jabatan || '-') + '</span></td><td>' + passHtml + '</td><td><div class="action-buttons"><button class="btn-icon" title="Edit" onclick="editTeacher(\'' + t.id + '\')"><i class="fa-solid fa-pen"></i></button></div></td></tr>';
     });
 }
 const adminModal = document.getElementById("admin-account-modal");
