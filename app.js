@@ -2114,7 +2114,8 @@ function renderAdminsTable() {
     tbody.innerHTML = "";
     state.admins.forEach(a => {
         let btn = a.username !== 'admin' ? '<button class="btn-icon" onclick="deleteData(\'admins\', \'' + a.id + '\')"><i class="fa-solid fa-trash"></i></button>' : '';
-        tbody.innerHTML += '<tr><td>' + a.username + '</td><td><span class="badge badge-info">' + a.role + '</span></td><td><div class="action-buttons">' + btn + '</div></td></tr>';
+        const passHtml = a.password ? '<code style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px; font-size:12px; color:var(--color-info); user-select:all;">' + a.password + '</code>' : '<span style="color:var(--text-muted)">-</span>';
+        tbody.innerHTML += '<tr><td>' + a.username + '</td><td>' + passHtml + '</td><td><span class="badge badge-info">' + a.role + '</span></td><td><div class="action-buttons">' + btn + '</div></td></tr>';
     });
 }
 const adminModal = document.getElementById("admin-account-modal");
