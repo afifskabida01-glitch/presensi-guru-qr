@@ -1,0 +1,17 @@
+{
+  "name": "E_PGSkabida",
+  "short_name": "E_PGS",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#0f172a",
+  "description": "Sistem Presensi Guru Digital SMK Bidayatul Hidayah",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

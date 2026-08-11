@@ -2,34 +2,387 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QRPresensi - Sistem Presensi Guru Modern</title>
-    <!-- Google Fonts -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>E_PGSkabida - Sistem Presensi Guru Modern</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- FontAwesome for Icons -->
+    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Main Style -->
-    <link rel="stylesheet" href="style.css?v=2.0">
+    <link rel="stylesheet" href="style.css?v=5.3">
 </head>
 <body>
-    <!-- App Background & Ambient Glows -->
     <div class="ambient-glow glow-1"></div>
     <div class="ambient-glow glow-2"></div>
     <div class="ambient-glow glow-3"></div>
 
-    <div class="app-wrapper">
-        <!-- Top Navigation / Brand Header -->
+    <!-- VIEW 1: LOGIN -->
+    <div id="view-login" class="view-container active">
+        <div class="login-wrapper">
+            <div class="login-header">
+                <div style="margin: 0 auto 20px auto; width: 100px; height: 100px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 32px rgba(91,134,182,0.4); padding: 8px;">
+                    <img src="logo.png" alt="Logo SMK Bidayatul Hidayah" style="width: 100%; height: 100%; object-fit: contain;">
+                </div>
+                <h1>E_PGS<span>kabida</span></h1>
+                <p>Silakan masuk untuk melanjutkan</p>
+            </div>
+            
+<div class="login-tabs">
+                <button class="login-tab-btn active" data-target="login-guru"><i class="fa-solid fa-user-tie"></i> Masuk Guru</button>
+                <button class="login-tab-btn" data-target="login-staff"><i class="fa-solid fa-file-signature"></i> Masuk Laporan</button>
+                <button class="login-tab-btn" data-target="login-admin"><i class="fa-solid fa-user-shield"></i> Masuk Admin</button>
+            </div>
+
+            <div class="login-card glass-card">
+                <!-- Tab Login Guru -->
+                <div id="login-guru" class="login-form-container active">
+                    <p style="text-align:center; color:var(--text-secondary); margin-bottom: 20px; font-size:14px;">Pilih nama Anda untuk masuk ke dashboard absen Anda.</p>
+                    <div class="form-group">
+                        <label>Nama Guru</label>
+                        <select id="login-select-guru" class="login-input" style="padding: 12px 16px;">
+                            <!-- Opsi dari app.js -->
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-block" id="btn-login-guru" style="padding: 14px; font-size: 16px;">
+                        Masuk sebagai Guru
+                    </button>
+                </div>
+
+                <!-- Tab Login Laporan (Kepala Sekolah / Tata Usaha / Bendahara) -->
+                <div id="login-staff" class="login-form-container">
+                    <p style="text-align:center; color:var(--text-secondary); margin-bottom: 20px; font-size:14px;">Pilih nama Anda untuk melihat laporan presensi (hanya lihat).</p>
+                    <div class="form-group">
+                        <label>Nama (Jabatan)</label>
+                        <select id="login-select-staff" class="login-input" style="padding: 12px 16px;">
+                            <!-- Opsi dari app.js -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="login-staff-pass" class="login-input" placeholder="Masukkan password laporan">
+                    </div>
+                    <button class="btn btn-primary btn-block" id="btn-login-staff" style="padding: 14px; font-size: 16px;">
+                        Masuk sebagai Laporan
+                    </button>
+                </div>
+
+                <!-- Tab Login Admin -->
+                <div id="login-admin" class="login-form-container">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="login-admin-user" class="login-input" placeholder="Masukkan username">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="login-admin-pass" class="login-input" placeholder="Masukkan password">
+                    </div>
+                    <button class="btn btn-primary btn-block" id="btn-login-admin" style="padding: 14px; font-size: 16px;">
+                        Masuk ke Dashboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW 2: GURU MOBILE APP -->
+    <div id="view-guru" class="view-container">
+        <div class="guru-app-layout">
+            <div class="guru-header">
+                <div class="guru-user-info">
+                    <div class="guru-avatar" id="guru-avatar-init">--</div>
+                    <div>
+                        <p class="greeting">Selamat Datang,</p>
+                        <h3 id="guru-name-display">Nama Guru</h3>
+                    </div>
+                </div>
+                <div class="guru-header-right">
+                    <div class="guru-datetime" id="guru-datetime">
+                        <div class="guru-time" id="guru-live-time">00:00:00</div>
+                        <div class="guru-date" id="guru-live-date">01/01/25</div>
+                    </div>
+                    <button class="btn-icon" id="btn-logout-guru" title="Keluar"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+                </div>
+            </div>
+
+            <div class="guru-scroll-content">
+                <!-- Status Hari Ini -->
+                <div class="guru-card schedule-card">
+                    <div class="card-top">
+                        <span>Jadwal Hari Ini</span>
+                        <span class="badge-day" id="guru-today-day">-</span>
+                    </div>
+                    
+                    <div class="status-indicator" id="guru-status-indicator">
+                        <i class="fa-solid fa-circle-question"></i> <span>Belum Absen</span>
+                    </div>
+
+                    <div id="guru-schedule-list" class="sim-today-schedule-list">
+                        <!-- Diisi via app.js -->
+                    </div>
+                </div>
+
+                <!-- Tombol Aksi Utama -->
+                <div class="guru-action-area">
+                    <button class="btn-scan-main" id="btn-trigger-scan">
+                        <div class="scan-icon-container">
+                            <i class="fa-solid fa-qrcode"></i>
+                            <div class="scan-laser-line"></div>
+                        </div>
+                        <span id="scan-btn-text">Absen Datang</span>
+                    </button>
+                    <p class="scan-hint" id="scan-hint-text">Ketuk tombol untuk memindai QR Code Admin</p>
+
+                    <div class="secondary-actions">
+                        <button class="btn-lapor-izin" id="btn-lapor-izin">
+                            <i class="fa-solid fa-file-medical"></i> Lapor Izin / Sakit
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Riwayat Pribadi -->
+                <div class="guru-card" style="gap: 12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px;">
+                        <h4 style="margin-bottom:12px; font-size:14px; color:var(--text-secondary)">Riwayat Terakhir Anda</h4>
+                    </div>
+                    <div style="margin-top: -6px; margin-bottom: 4px;">
+                    <button class="btn btn-secondary" id="btn-open-rundown" style="width:100%; justify-content:center; padding: 12px 14px;">
+                            <i class="fa-solid fa-file-lines"></i> Lihat Rundown Jadwal
+                        </button>
+                    </div>
+                    <div class="personal-log-list" id="guru-personal-logs"></div>
+
+                </div>
+
+
+            </div>
+        </div>
+
+        <!-- Scanner Overlay (Kamera Sungguhan) -->
+        <div class="scanner-overlay hidden" id="scanner-view-overlay">
+            <div class="scanner-header">
+                <button class="btn-close-scanner" id="btn-close-scanner"><i class="fa-solid fa-xmark"></i></button>
+                <span id="scanner-title-text">Arahkan ke QR Code Admin</span>
+            </div>
+            <div class="scanner-viewport" style="position:relative; flex:1;">
+                <!-- VIDEO = live camera feed -->
+                <video id="camera-video" playsinline autoplay muted style="width:100%; height:100%; object-fit:cover;"></video>
+                <!-- CANVAS = invisible, dipakai jsQR untuk baca frame -->
+                <canvas id="camera-canvas" style="display:none;"></canvas>
+                <!-- Overlay kotak panduan -->
+                <div class="scanner-overlay-ui">
+                    <div class="scanner-target-box">
+                        <div class="corner top-left"></div>
+                        <div class="corner top-right"></div>
+                        <div class="corner bottom-left"></div>
+                        <div class="corner bottom-right"></div>
+                        <div class="scanner-laser"></div>
+                    </div>
+                    <p class="scanner-tip">Arahkan kamera ke QR Code di layar Admin</p>
+                </div>
+                <!-- Status pesan saat QR terdeteksi -->
+                <div id="scan-result-toast" class="scan-result-toast hidden">QR Terdeteksi!</div>
+            </div>
+        </div>
+
+        <!-- Lihat Rundown Jadwal (Kualitas Tinggi) -->
+        <div class="modal-overlay hidden" id="rundown-modal" aria-hidden="true">
+            <div class="modal-card glass-card animate-modal" style="max-width: 860px; width: 96vw;">
+                <div class="modal-header">
+                    <h3>Rundown Jadwal (Kualitas Tinggi)</h3>
+                    <button class="btn-close-modal" id="btn-close-rundown-modal"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body" style="padding: 16px 20px 20px;">
+<div class="rundown-zoom-controls">
+                        <div class="rundown-zoom-label">
+                            <i class="fa-solid fa-image"></i> Menampilkan jadwal pelajaran.
+                        </div>
+                        <div class="rundown-zoom-buttons">
+                            <button class="btn-zoom" id="btn-rundown-zoom-out" title="Perkecil">
+                                <i class="fa-solid fa-search-minus"></i>
+                            </button>
+                            <span class="rundown-zoom-level" id="rundown-zoom-display">100%</span>
+                            <button class="btn-zoom" id="btn-rundown-zoom-in" title="Perbesar">
+                                <i class="fa-solid fa-search-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="rundown-image-wrapper" style="border:1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow:hidden; background: rgba(0,0,0,0.25); min-height: 200px; position: relative; touch-action: none;">
+<img id="rundown-png-image" src="jadwal_pelajaran_2026_27-1.png" alt="Jadwal Pelajaran" style="width: 100%; height: auto; display: block; user-select: none; -webkit-user-select: none; -webkit-user-drag: none;" onerror="this.parentElement.innerHTML='<div style=\'padding:40px; text-align:center; color:var(--text-muted);\'><i class=\'fa-solid fa-image\' style=\'font-size:40px; margin-bottom:12px; display:block;\'></i>Gambar jadwal belum tersedia. Silakan unggah file <strong>jadwal_pelajaran_2026_27-1.png</strong> di folder yang sama.</div>'">
+                    </div>
+
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">
+                        Geser gambar dengan jari/mouse untuk melihat detail. Gunakan tombol zoom (+/-) atau cubit dua jari (pinch) untuk zoom.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="btn-close-rundown-modal-2"><i class="fa-solid fa-check"></i> Selesai</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Izin Overlay -->
+        <div class="scanner-overlay hidden" id="izin-overlay" style="background: rgba(7,9,14,0.97);">
+            <div class="scanner-header">
+                <button class="btn-close-scanner" id="btn-close-izin"><i class="fa-solid fa-xmark"></i></button>
+                <span>Laporan Izin / Sakit</span>
+            </div>
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px; flex:1;">
+                <div class="form-group">
+                    <label style="font-size:12px; color:var(--text-secondary);">Jenis Ketidakhadiran</label>
+                    <select id="izin-type" style="background:#171b26; color:white; border:1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px; font-family:inherit; font-size:14px; width:100%;">
+                        <option value="izin">Izin (ada keperluan)</option>
+                        <option value="sakit">Sakit</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="font-size:12px; color:var(--text-secondary);">Keterangan / Alasan</label>
+                    <textarea id="izin-keterangan" placeholder="Tuliskan alasan izin..." style="background:#171b26; color:white; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px; font-family:inherit; font-size:13px; width:100%; min-height:80px; resize:none;"></textarea>
+                </div>
+                <button class="btn btn-primary btn-block" id="btn-submit-izin" style="margin-top:8px; padding:14px;">
+                    <i class="fa-solid fa-paper-plane"></i> Kirim Laporan ke Admin
+                </button>
+            </div>
+        </div>
+
+        <!-- NOTIFIKASI PERGANTIAN MAPEL -->
+        <div class="class-change-overlay hidden" id="class-change-overlay">
+            <div class="class-change-card">
+                <div class="class-change-icon">
+                    <i class="fa-solid fa-bell"></i>
+                </div>
+                <div class="class-change-content">
+                    <p class="class-change-label">Ganti Jam Pelajaran</p>
+                    <h3 class="class-change-mapel" id="cc-mapel">-</h3>
+                    <p class="class-change-detail" id="cc-detail">-</p>
+                    <div class="class-change-timer" id="cc-timer">
+                        <i class="fa-regular fa-clock"></i>
+                        <span id="cc-countdown">8</span> detik lagi
+                    </div>
+                </div>
+                <button class="class-change-dismiss" id="cc-dismiss">
+                    <i class="fa-solid fa-play"></i> Siap Mengajar!
+                </button>
+            </div>
+        </div>
+
+        <!-- Success Dialog Guru -->
+        <div class="success-dialog-overlay hidden" id="success-dialog">
+            <div class="success-card glass-card">
+                <div class="success-icon animate-success" id="success-icon-wrapper">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <h3 id="success-title">Presensi Berhasil!</h3>
+                <p id="success-message">Data telah dicatat.</p>
+                <div class="success-details">
+                    <div class="detail-row">
+                        <span>Waktu:</span>
+                        <strong id="success-time">-</strong>
+                    </div>
+                    <div class="detail-row">
+                        <span>Acuan Jam:</span>
+                        <strong id="success-acuan">-</strong>
+                    </div>
+                    <div class="detail-row">
+                        <span>Status Datang:</span>
+                        <span class="badge" id="success-status-badge">-</span>
+                    </div>
+                </div>
+                <button class="btn btn-success btn-block" id="btn-close-success">Selesai</button>
+            </div>
+        </div>
+    </div>
+
+<!-- VIEW 2.5: STAFF LAPORAN (Kepala Sekolah / Tata Usaha / Bendahara) -->
+    <div id="view-staff" class="view-container app-wrapper">
         <header class="app-header">
             <div class="brand">
-                <div class="brand-logo">
-                    <i class="fa-solid fa-qrcode-scale"></i>
-                    <i class="fa-solid fa-circle-check logo-check"></i>
+                <div style="width: 52px; height: 52px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(91,134,182,0.4); padding: 5px; flex-shrink: 0;">
+                    <img src="logo.png" alt="Logo" style="width: 100%; height: 100%; object-fit: contain;">
                 </div>
                 <div class="brand-text">
-                    <h1>QR<span>Presensi</span></h1>
-                    <p>Sistem Presensi Guru Berbasis QR Code</p>
+                    <h1>E_PGS<span>kabida</span></h1>
+                    <p>Laporan Presensi</p>
+                </div>
+            </div>
+            <div class="header-meta">
+                <div class="date-widget">
+                    <i class="fa-regular fa-calendar"></i>
+                    <span id="staff-live-date">-</span>
+                </div>
+                <button class="btn btn-secondary" id="btn-logout-staff" style="padding: 8px 16px;">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar
+                </button>
+            </div>
+        </header>
+
+        <main class="main-container" style="padding: 0;">
+            <aside class="admin-sidebar" style="border-right: 1px solid var(--border-glass);">
+                <div class="admin-profile">
+                    <div class="admin-avatar">
+                        <i class="fa-solid fa-file-signature"></i>
+                    </div>
+                    <div class="admin-info">
+                        <h3 id="staff-name-display">-</h3>
+                        <p id="staff-jabatan-display">-</p>
+                    </div>
+                </div>
+                <nav class="sidebar-nav">
+                    <ul>
+                        <li class="nav-item active" data-tab="staff-daily"><i class="fa-solid fa-calendar-day"></i><span>Laporan Harian</span></li>
+                        <li class="nav-item" data-tab="staff-monthly"><i class="fa-solid fa-calendar-alt"></i><span>Laporan Bulanan</span></li>
+                    </ul>
+                </nav>
+            </aside>
+
+            <div class="admin-content">
+                <!-- TAB: LAPORAN HARIAN -->
+                <div class="tab-content active" id="tab-staff-daily">
+                    <div class="content-header-row">
+                        <div class="content-header"><h2>Laporan Kehadiran Harian</h2><p>Rekapan presensi guru per tanggal.</p></div>
+                        <div class="export-actions">
+                            <input type="date" id="staff-date" class="date-input-styled">
+                        </div>
+                    </div>
+                    <div class="table-container glass-card">
+                        <table class="data-table">
+                            <thead><tr><th>Guru</th><th>Acuan</th><th>Jam Datang</th><th>Jam Pulang</th><th class="text-center">Status</th><th>Ket</th></tr></thead>
+                            <tbody id="staff-daily-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB: LAPORAN BULANAN -->
+                <div class="tab-content" id="tab-staff-monthly">
+                    <div class="content-header-row">
+                        <div class="content-header"><h2>Laporan Kehadiran Bulanan</h2><p>Rekapan presensi guru per bulan.</p></div>
+                        <div class="export-actions">
+                            <select id="staff-report-month"></select>
+                        </div>
+                    </div>
+                    <div class="glass-card" style="padding:12px 16px; margin-bottom:12px; font-size:13px; color:var(--text-secondary);">
+                        <strong>Keterangan Skor:</strong> 90 - 100 = Sangat Baik, 80 - 89 = Baik, 70 - 79 = Cukup, di bawah 70 = Perlu Perbaikan.
+                    </div>
+                    <div class="table-container glass-card">
+                        <table class="data-table">
+                            <thead><tr><th>Nama Guru</th><th class="text-center">Hadir</th><th class="text-center">Tepat</th><th class="text-center">Lambat</th><th class="text-center">Izin</th><th class="text-center">Alpa</th><th class="text-right">Skor & Penilaian</th></tr></thead>
+                            <tbody id="staff-monthly-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- VIEW 3: ADMIN DASHBOARD -->
+    <div id="view-admin" class="view-container app-wrapper">
+        <header class="app-header">
+            <div class="brand">
+                <div style="width: 52px; height: 52px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(91,134,182,0.4); padding: 5px; flex-shrink: 0;">
+                    <img src="logo.png" alt="Logo" style="width: 100%; height: 100%; object-fit: contain;">
+                </div>
+                <div class="brand-text">
+                    <h1>E_PGS<span>kabida</span></h1>
+                    <p>Admin Dashboard</p>
                 </div>
             </div>
             <div class="header-meta">
@@ -39,546 +392,398 @@
                 </div>
                 <div class="date-widget">
                     <i class="fa-regular fa-calendar"></i>
-                    <span id="live-date">Sabtu, 11 Juli 2026</span>
+                    <span id="live-date">-</span>
                 </div>
-                <div class="badge-storage-mode" id="storage-mode-indicator">
-                    <i class="fa-solid fa-database"></i>
-                    <span id="storage-mode-text">Mode: Lokal (Demo)</span>
-                </div>
-                <div class="badge-status-system">
-                    <span class="indicator-dot"></span>
-                    System Active
-                </div>
+                <button class="btn btn-secondary" id="btn-logout-admin" style="padding: 8px 16px;">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar
+                </button>
             </div>
         </header>
 
-        <!-- Main Dashboard Split Screen -->
-        <main class="main-container">
-            
-            <!-- LEFT PANEL: ADMIN DASHBOARD (70%) -->
-            <section class="admin-panel glass-card">
-                <!-- Sidebar Menu -->
-                <aside class="admin-sidebar">
-                    <div class="admin-profile">
-                        <div class="admin-avatar">
-                            <i class="fa-solid fa-user-shield"></i>
-                        </div>
-                        <div class="admin-info">
-                            <h3>Administrator</h3>
-                            <p>Admin Utama</p>
-                        </div>
+        <main class="main-container" style="padding: 0;">
+            <aside class="admin-sidebar" style="border-right: 1px solid var(--border-glass);">
+                <div class="admin-profile">
+                    <div class="admin-avatar">
+                        <i class="fa-solid fa-user-shield"></i>
                     </div>
-                    <nav class="sidebar-nav">
-                        <ul>
-                            <li class="nav-item active" data-tab="dashboard">
-                                <i class="fa-solid fa-chart-line"></i>
-                                <span>Dashboard</span>
-                            </li>
-                            <li class="nav-item" data-tab="teachers">
-                                <i class="fa-solid fa-user-tie"></i>
-                                <span>Manajemen Guru</span>
-                            </li>
-                            <li class="nav-item" data-tab="schedule">
-                                <i class="fa-solid fa-calendar-days"></i>
-                                <span>Pengaturan Jadwal</span>
-                            </li>
-                            <li class="nav-item" data-tab="reports">
-                                <i class="fa-solid fa-file-invoice-dollar"></i>
-                                <span>Laporan & Export</span>
-                            </li>
-                        </ul>
-                    </nav>
-                </aside>
-
-                <!-- Admin Tab Contents Area -->
-                <div class="admin-content">
-                    
-                    <!-- TAB 1: DASHBOARD -->
-                    <div class="tab-content active" id="tab-dashboard">
-                        <div class="content-header">
-                            <h2>Ringkasan Kehadiran Hari Ini</h2>
-                            <p>Pantau presensi guru dan regenerasi QR Code harian di sini.</p>
-                        </div>
-
-                        <!-- Stats Grid -->
-                        <div class="stats-grid">
-                            <div class="stat-card glass-card">
-                                <div class="stat-icon bg-blue"><i class="fa-solid fa-users"></i></div>
-                                <div class="stat-data">
-                                    <h4 id="stat-total-teachers">0</h4>
-                                    <p>Total Guru</p>
-                                </div>
-                            </div>
-                            <div class="stat-card glass-card">
-                                <div class="stat-icon bg-green"><i class="fa-solid fa-user-check"></i></div>
-                                <div class="stat-data">
-                                    <h4 id="stat-present-teachers">0</h4>
-                                    <p>Hadir</p>
-                                </div>
-                            </div>
-                            <div class="stat-card glass-card">
-                                <div class="stat-icon bg-orange"><i class="fa-solid fa-user-clock"></i></div>
-                                <div class="stat-data">
-                                    <h4 id="stat-late-teachers">0</h4>
-                                    <p>Terlambat</p>
-                                </div>
-                            </div>
-                            <div class="stat-card glass-card">
-                                <div class="stat-icon bg-purple"><i class="fa-solid fa-chart-pie"></i></div>
-                                <div class="stat-data">
-                                    <h4 id="stat-pct-attendance">0%</h4>
-                                    <p>Tingkat Kehadiran</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Main Row: QR Generator and Live Feed -->
-                        <div class="dashboard-row">
-                            <!-- QR Code Panel -->
-                            <div class="qr-panel glass-card card-glow-purple">
-                                <div class="panel-header">
-                                    <h3><i class="fa-solid fa-qrcode"></i> QR Code Presensi Aktif</h3>
-                                    <span class="badge-live-pulse"><span class="pulse-ring"></span>Aktif</span>
-                                </div>
-                                <div class="qr-container">
-                                    <div class="qr-box" id="qr-code-display">
-                                        <!-- QR Rendered here by JS -->
-                                    </div>
-                                    <div class="qr-scan-line"></div>
-                                </div>
-                                <div class="qr-meta">
-                                    <p class="qr-token">Token: <span id="active-token">QR-20260711-X9A</span></p>
-                                    <button class="btn btn-primary" id="btn-regenerate-qr">
-                                        <i class="fa-solid fa-rotate"></i> Regenerasi QR Code
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Live Feed Scans -->
-                            <div class="feed-panel glass-card">
-                                <div class="panel-header">
-                                    <h3><i class="fa-solid fa-rss animate-rss"></i> Feed Presensi Terkini</h3>
-                                    <span class="sub-badge" id="feed-count">Terbaru</span>
-                                </div>
-                                <div class="feed-container" id="feed-scans-list">
-                                    <!-- Dynamic feed items go here -->
-                                    <div class="feed-empty">
-                                        <i class="fa-solid fa-clipboard-question"></i>
-                                        <p>Belum ada presensi yang tercatat hari ini.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="admin-info">
+                        <h3 id="admin-name-display">Administrator</h3>
+                        <p>Super Admin</p>
                     </div>
-
-                    <!-- TAB 2: MANAJEMEN GURU -->
-                    <div class="tab-content" id="tab-teachers">
-                        <div class="content-header-row">
-                            <div class="content-header">
-                                <h2>Manajemen Data Guru</h2>
-                                <p>Kelola profil guru, informasi login simulasi, dan jam masuk operasional.</p>
-                            </div>
-                            <button class="btn btn-success" id="btn-add-teacher-modal">
-                                <i class="fa-solid fa-user-plus"></i> Tambah Guru Baru
-                            </button>
-                        </div>
-
-                        <!-- Search and Filter Bar -->
-                        <div class="filter-bar glass-card">
-                            <div class="search-box">
-                                <i class="fa-solid fa-magnifying-glass"></i>
-                                <input type="text" id="search-teacher" placeholder="Cari guru berdasarkan nama atau NIP...">
-                            </div>
-                            <div class="filter-options">
-                                <select id="filter-picket-day">
-                                    <option value="">Semua Hari Piket</option>
-                                    <option value="Senin">Senin</option>
-                                    <option value="Selasa">Selasa</option>
-                                    <option value="Rabu">Rabu</option>
-                                    <option value="Kamis">Kamis</option>
-                                    <option value="Jumat">Jumat</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Teachers List Table -->
-                        <div class="table-container glass-card">
-                            <table class="data-table" id="teachers-table">
-                                <thead>
-                                    <tr>
-                                        <th>Inisial</th>
-                                        <th>Nama Lengkap</th>
-                                        <th>NIP</th>
-                                        <th>Hari Piket</th>
-                                        <th>Jam Masuk</th>
-                                        <th class="text-right">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="teachers-list-body">
-                                    <!-- Dynamic rows go here -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- TAB 3: PENGATURAN JADWAL -->
-                    <div class="tab-content" id="tab-schedule">
-                        <div class="content-header">
-                            <h2>Pengaturan Jadwal & Jam Kerja</h2>
-                            <p>Konfigurasi parameter waktu kedatangan dan kebijakan toleransi keterlambatan sekolah.</p>
-                        </div>
-
-                        <div class="settings-grid">
-                            <!-- Global Rule Form -->
-                            <div class="settings-card glass-card">
-                                <h3><i class="fa-solid fa-sliders"></i> Aturan Waktu Global</h3>
-                                <form id="form-global-settings" class="settings-form">
-                                    <div class="form-group">
-                                        <label for="set-default-checkin">Jam Masuk Utama (Default)</label>
-                                        <input type="time" id="set-default-checkin" value="07:00" required>
-                                        <span class="form-help">Jam acuan masuk sekolah jika guru tidak diatur khusus.</span>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="set-tolerance-minutes">Batas Toleransi Keterlambatan (Menit)</label>
-                                        <div class="input-unit-group">
-                                            <input type="number" id="set-tolerance-minutes" min="0" max="60" value="15" required>
-                                            <span class="unit-label">Menit</span>
-                                        </div>
-                                        <span class="form-help">Waktu toleransi sebelum dicatat terlambat (misal: 07:15).</span>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Hari Aktif Sekolah / Piket</label>
-                                        <div class="checkbox-group">
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" name="active-days" value="Senin" checked> Senin
-                                            </label>
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" name="active-days" value="Selasa" checked> Selasa
-                                            </label>
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" name="active-days" value="Rabu" checked> Rabu
-                                            </label>
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" name="active-days" value="Kamis" checked> Kamis
-                                            </label>
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" name="active-days" value="Jumat" checked> Jumat
-                                            </label>
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" name="active-days" value="Sabtu"> Sabtu
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary btn-block">
-                                        <i class="fa-solid fa-floppy-disk"></i> Simpan Konfigurasi
-                                    </button>
-                                </form>
-                            </div>
-
-                            <!-- Explanation Card -->
-                            <div class="settings-card glass-card info-card">
-                                <h3><i class="fa-solid fa-circle-info"></i> Skema Presensi QR Code</h3>
-                                <div class="info-content">
-                                    <p>Sistem ini dirancang untuk bekerja secara transparan dengan alur sebagai berikut:</p>
-                                    <ol>
-                                        <li><strong>QR Code Harian</strong>: Admin menghasilkan QR Code dengan token terenkripsi unik setiap hari untuk mencegah kecurangan (misalnya screenshot QR lama).</li>
-                                        <li><strong>Waktu Scan Real-time</strong>: Saat guru memindai QR Code, waktu server/sistem dicatat.</li>
-                                        <li><strong>Kalkulasi Otomatis</strong>:
-                                            <ul>
-                                                <li>Waktu Scan &le; Jam Masuk Guru + Toleransi &rarr; <strong>Tepat Waktu</strong></li>
-                                                <li>Waktu Scan &gt; Jam Masuk Guru + Toleransi &rarr; <strong>Terlambat</strong></li>
-                                            </ul>
-                                        </li>
-                                        <li><strong>Jadwal Piket</strong>: Guru yang terjadwal piket memiliki jam kedatangan default yang dapat disesuaikan pada tab Manajemen Guru untuk tugas pagi.</li>
-                                    </ol>
-                                    <div class="warning-alert">
-                                        <i class="fa-solid fa-triangle-exclamation"></i>
-                                        <span>Perubahan aturan waktu akan langsung berdampak pada kalkulasi presensi baru berikutnya hari ini.</span>
-                                    </div>
-                                </div>
-                        </div>
-
-                        <!-- Reset Database Option -->
-                        <div class="settings-card glass-card" style="margin-top: 20px; border-color: rgba(239, 68, 68, 0.25);">
-                            <h3 style="color: var(--color-danger); display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 16px; font-weight: 600;">
-                                <i class="fa-solid fa-trash-can"></i> Bersihkan Penyimpanan Demo (Reset Cache)
-                            </h3>
-                            <div class="info-content" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
-                                <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">
-                                    Jika Anda mendeteksi data guru/presensi demo lama masih tersimpan di browser ini (cache local storage), tekan tombol ini untuk membersihkannya secara permanen.
-                                </p>
-                                <button class="btn btn-pdf" onclick="resetDatabaseLocal()" style="background: linear-gradient(135deg, #ef4444, #be123c); box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3); font-weight: 700;">
-                                    <i class="fa-solid fa-trash-arrow-up"></i> Bersihkan Cache Lokal Browser
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 4: LAPORAN & MONITORING -->
-                    <div class="tab-content" id="tab-reports">
-                        <div class="content-header-row">
-                            <div class="content-header">
-                                <h2>Laporan Kehadiran & Eksport Data</h2>
-                                <p>Tinjau ringkasan kehadiran bulanan dan unduh berkas untuk penyerahan ke Kepala Sekolah.</p>
-                            </div>
-                            <div class="export-actions">
-                                <button class="btn btn-excel" id="btn-export-csv">
-                                    <i class="fa-solid fa-file-csv"></i> Unduh CSV (Excel)
-                                </button>
-                                <button class="btn btn-pdf" id="btn-export-pdf">
-                                    <i class="fa-solid fa-file-pdf"></i> Cetak / PDF Laporan
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Report Filters -->
-                        <div class="filter-bar glass-card">
-                            <div class="filter-options">
-                                <label for="select-report-month">Pilih Bulan & Tahun:</label>
-                                <select id="select-report-month">
-                                    <option value="2026-07" selected>Juli 2026</option>
-                                    <option value="2026-06">Juni 2026</option>
-                                    <option value="2026-05">Mei 2026</option>
-                                </select>
-                            </div>
-                            <div class="legend-indicators">
-                                <span class="legend-item"><span class="legend-color legend-present"></span> Tepat Waktu</span>
-                                <span class="legend-item"><span class="legend-color legend-late"></span> Terlambat</span>
-                            </div>
-                        </div>
-
-                        <!-- Custom Mini Chart Visualization -->
-                        <div class="chart-container glass-card">
-                            <h3>Visualisasi Tren Keterlambatan Bulanan</h3>
-                            <div class="bar-chart" id="tardiness-bar-chart">
-                                <!-- Generated Dynamically via CSS/HTML in JS -->
-                            </div>
-                        </div>
-
-                        <!-- Report Summary Table -->
-                        <div class="table-container glass-card">
-                            <table class="data-table" id="report-summary-table">
-                                <thead>
-                                    <tr>
-                                        <th>Nama Guru</th>
-                                        <th>NIP</th>
-                                        <th class="text-center">Hadir</th>
-                                        <th class="text-center">Tepat Waktu</th>
-                                        <th class="text-center">Terlambat</th>
-                                        <th class="text-center">Absen/Alpa</th>
-                                        <th class="text-right">Skor Kehadiran</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="report-list-body">
-                                    <!-- Dynamic reports calculation -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
                 </div>
-            </section>
+                <nav class="sidebar-nav">
+                    <ul>
+                        <li class="nav-item active" data-tab="dashboard"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></li>
+                        <li class="nav-item" data-tab="teachers"><i class="fa-solid fa-user-tie"></i><span>Data Guru</span></li>
+                        <li class="nav-item" data-tab="jadwal"><i class="fa-solid fa-calendar-week"></i><span>Jadwal Mapel</span></li>
+                        <li class="nav-item" data-tab="manage"><i class="fa-solid fa-clipboard-user"></i><span>Data Kehadiran</span></li>
+                        <li class="nav-item" data-tab="admins"><i class="fa-solid fa-users-gear"></i><span>Kelola Admin</span></li>
+                        <li class="nav-item" data-tab="schedule"><i class="fa-solid fa-sliders"></i><span>Sistem & Cache</span></li>
+                        <li class="nav-item" data-tab="reports"><i class="fa-solid fa-file-invoice-dollar"></i><span>Laporan Ekspor</span></li>
+                    </ul>
+                </nav>
+            </aside>
 
-            <!-- RIGHT PANEL: TEACHER SIMULATOR (30%) -->
-            <section class="simulator-panel">
-                <div class="simulator-sticky">
-                    <div class="sim-label">
-                        <i class="fa-solid fa-gamepad"></i> SIMULATOR GURU (MOBILE)
+            <div class="admin-content">
+                <!-- TAB: DASHBOARD -->
+                <div class="tab-content active" id="tab-dashboard">
+                    <div class="content-header">
+                        <h2>Ringkasan Kehadiran Hari Ini</h2>
                     </div>
-                    
-                    <!-- Phone Frame -->
-                    <div class="phone-frame">
-                        <div class="phone-camera-notch"></div>
-                        <div class="phone-screen">
-                            
-                            <!-- Phone Top Status Bar -->
-                            <div class="phone-status-bar">
-                                <span id="phone-time">22:25</span>
-                                <div class="status-icons">
-                                    <i class="fa-solid fa-signal"></i>
-                                    <i class="fa-solid fa-wifi"></i>
-                                    <i class="fa-solid fa-battery-three-quarters"></i>
-                                </div>
+                    <div class="stats-grid">
+                        <div class="stat-card glass-card">
+                            <div class="stat-icon bg-blue"><i class="fa-solid fa-users"></i></div>
+                            <div class="stat-data"><h4 id="stat-total-teachers">0</h4><p>Total Guru</p></div>
+                        </div>
+                        <div class="stat-card glass-card">
+                            <div class="stat-icon bg-green"><i class="fa-solid fa-user-check"></i></div>
+                            <div class="stat-data"><h4 id="stat-present-teachers">0</h4><p>Hadir</p></div>
+                        </div>
+                        <div class="stat-card glass-card">
+                            <div class="stat-icon bg-orange"><i class="fa-solid fa-user-clock"></i></div>
+                            <div class="stat-data"><h4 id="stat-late-teachers">0</h4><p>Terlambat</p></div>
+                        </div>
+                        <div class="stat-card glass-card">
+                            <div class="stat-icon bg-indigo"><i class="fa-solid fa-file-medical"></i></div>
+                            <div class="stat-data"><h4 id="stat-izin-teachers">0</h4><p>Izin / Sakit</p></div>
+                        </div>
+                    </div>
+                    <div class="dashboard-row" style="grid-template-columns: 400px 1fr;">
+                        <div class="qr-panel glass-card card-glow-purple">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-qrcode"></i> QR Code Presensi (Datang & Pulang)</h3>
+                                <span class="badge-live-pulse"><span class="pulse-ring"></span>Aktif</span>
                             </div>
-
-                            <!-- Phone Body App Content -->
-                            <div class="phone-app">
-                                <!-- App Logo Header inside Simulator -->
-                                <div class="phone-header">
-                                    <div class="phone-brand">
-                                        <i class="fa-solid fa-qrcode"></i>
-                                        <span>QRPresensi Guru</span>
-                                    </div>
-                                    <div class="phone-notif-bell">
-                                        <i class="fa-regular fa-bell"></i>
-                                    </div>
-                                </div>
-
-                                <div class="phone-scroll-content">
-                                    <!-- Step 1: Account Selector -->
-                                    <div class="sim-card card-dark">
-                                        <label for="select-sim-teacher" class="sim-field-label">Pilih Akun Guru:</label>
-                                        <div class="custom-select-wrapper">
-                                            <select id="select-sim-teacher">
-                                                <!-- Dynamic options -->
-                                            </select>
-                                        </div>
-                                        <div class="teacher-detail-badge" id="sim-teacher-badge">
-                                            <div class="teacher-initials" id="sim-teacher-initials">--</div>
-                                            <div class="teacher-meta-text">
-                                                <h4 id="sim-teacher-name">Pilih Guru</h4>
-                                                <p id="sim-teacher-nip">NIP: -</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Step 2: Today's Schedule Card -->
-                                    <div class="sim-card card-schedule">
-                                        <div class="card-schedule-header">
-                                            <span>Jadwal Hari Ini</span>
-                                            <span class="badge-day" id="sim-today-day">Sabtu</span>
-                                        </div>
-                                        <div class="schedule-times">
-                                            <div class="time-block">
-                                                <span class="time-label">Jam Masuk</span>
-                                                <span class="time-value" id="sim-checkin-time">07:00</span>
-                                            </div>
-                                            <div class="time-block">
-                                                <span class="time-label">Piket Pagi</span>
-                                                <span class="time-value" id="sim-picket-status">Tidak</span>
-                                            </div>
-                                        </div>
-                                        <div class="attendance-status-box" id="sim-attendance-status-box">
-                                            <i class="fa-solid fa-circle-question"></i>
-                                            <span id="sim-attendance-status-text">Belum Presensi Hari Ini</span>
-                                        </div>
-                                    </div>
-
-                                    <!-- Step 3: Scan QR Button -->
-                                    <div class="scan-action-area">
-                                        <button class="btn-scan" id="btn-trigger-scan">
-                                            <div class="scan-icon-container">
-                                                <i class="fa-solid fa-qrcode"></i>
-                                                <div class="scan-laser-line"></div>
-                                            </div>
-                                            <span>Scan QR Code Admin</span>
-                                        </button>
-                                        <p class="scan-instruction">Ketuk tombol di atas untuk mensimulasikan pemindaian kamera pada QR Code aktif Admin.</p>
-                                    </div>
-
-                                    <!-- Step 4: Personal Log -->
-                                    <div class="sim-card card-log">
-                                        <h4>Riwayat Kehadiran Anda</h4>
-                                        <div class="personal-log-list" id="sim-personal-logs">
-                                            <!-- Logs go here -->
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Camera Scan Animation Overlay (Hidden initially) -->
-                                <div class="scanner-overlay hidden" id="scanner-view-overlay">
-                                    <div class="scanner-header">
-                                        <button class="btn-close-scanner" id="btn-close-scanner">
-                                            <i class="fa-solid fa-xmark"></i>
-                                        </button>
-                                        <span>Memindai QR Code...</span>
-                                    </div>
-                                    <div class="scanner-viewport">
-                                        <div class="scanner-target-box">
-                                            <div class="corner top-left"></div>
-                                            <div class="corner top-right"></div>
-                                            <div class="corner bottom-left"></div>
-                                            <div class="corner bottom-right"></div>
-                                            <div class="scanner-laser"></div>
-                                        </div>
-                                        <p class="scanner-tip">Arahkan kamera simulator ke QR Code Admin</p>
-                                    </div>
-                                    <div class="scanner-fake-camera"></div>
-                                </div>
-
-                                <!-- Scan Success Dialog (Hidden initially) -->
-                                <div class="success-dialog-overlay hidden" id="success-dialog">
-                                    <div class="success-card glass-card">
-                                        <div class="success-icon animate-success">
-                                            <i class="fa-solid fa-circle-check"></i>
-                                        </div>
-                                        <h3>Presensi Berhasil!</h3>
-                                        <p id="success-message">Selamat, Anda berhasil mencatat kehadiran tepat waktu.</p>
-                                        <div class="success-details">
-                                            <div class="detail-row">
-                                                <span>Waktu:</span>
-                                                <strong id="success-time">07:05:12</strong>
-                                            </div>
-                                            <div class="detail-row">
-                                                <span>Status:</span>
-                                                <span class="badge" id="success-status-badge">Tepat Waktu</span>
-                                            </div>
-                                        </div>
-                                        <button class="btn btn-success btn-block" id="btn-close-success">OK</button>
-                                    </div>
-                                </div>
-
+                            <div class="qr-container" style="padding: 40px;">
+                                <!-- qrcode.js akan inject <canvas> atau <img> ke dalam div ini -->
+                                <div class="qr-box" id="qr-code-display" style="width: 280px; height: 280px; display:flex; align-items:center; justify-content:center;"></div>
                             </div>
+                            <div class="qr-meta">
+                                <p class="qr-token">Token: <span id="active-token">-</span></p>
+                                <button class="btn btn-primary" id="btn-regenerate-qr"><i class="fa-solid fa-rotate"></i> Perbarui QR</button>
+                            </div>
+                        </div>
+                        <div class="feed-panel glass-card">
+                            <div class="panel-header">
+                                <h3><i class="fa-solid fa-rss"></i> Feed Aktivitas Hari Ini</h3>
+                                <span class="sub-badge" id="feed-count">Live</span>
+                            </div>
+                            <div class="feed-container" id="feed-scans-list"></div>
                         </div>
                     </div>
                 </div>
-            </section>
 
+                <!-- TAB: DATA GURU (Sama seperti sebelumnya) -->
+                <div class="tab-content" id="tab-teachers">
+                    <div class="content-header-row">
+                        <div class="content-header"><h2>Manajemen Data Guru</h2></div>
+                        <button class="btn btn-success" id="btn-add-teacher-modal"><i class="fa-solid fa-plus"></i> Tambah Guru</button>
+                    </div>
+                    <div class="filter-bar glass-card">
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="search-teacher" placeholder="Cari guru...">
+                        </div>
+                    </div>
+                    <div class="table-container glass-card">
+                        <table class="data-table">
+                            <thead><tr><th>Inisial</th><th>Nama</th><th>Jabatan</th><th>No. HP</th><th>NIP</th><th>Hari Piket</th><th>Jam Piket</th><th class="text-right">Aksi</th></tr></thead>
+                            <tbody id="teachers-list-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB: JADWAL (Sama seperti sebelumnya) -->
+                <div class="tab-content" id="tab-jadwal">
+                    <div class="content-header"><h2>Jadwal Mengajar</h2></div>
+                    <div class="filter-bar glass-card">
+                        <label>Pilih Guru:</label>
+                        <select id="select-jadwal-teacher" style="flex:1; max-width: 320px;"></select>
+                    </div>
+                    <div id="jadwal-week-grid" class="jadwal-week-grid"></div>
+                </div>
+
+                <!-- TAB: KELOLA KEHADIRAN (Ditambah Jam Pulang) -->
+                <div class="tab-content" id="tab-manage">
+                    <div class="content-header-row">
+                        <div class="content-header"><h2>Data Kehadiran</h2></div>
+                        <div class="export-actions">
+                            <input type="date" id="manage-date" class="date-input-styled">
+                            <button class="btn btn-success" id="btn-add-manual-attendance"><i class="fa-solid fa-plus"></i> Tambah Manual</button>
+                        </div>
+                    </div>
+                    <div class="table-container glass-card">
+                        <table class="data-table">
+                            <thead><tr><th>Guru</th><th>Acuan</th><th>Jam Datang</th><th>Jam Pulang</th><th class="text-center">Status</th><th>Ket</th><th class="text-right">Aksi</th></tr></thead>
+                            <tbody id="manage-attendance-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB: KELOLA ADMIN (BARU) -->
+<div class="tab-content" id="tab-admins">
+                    <div class="content-header-row">
+                        <div class="content-header"><h2>Kelola Admin</h2><p>Daftar akun yang digunakan untuk masuk: <strong>Dasbor Admin</strong> dan <strong>Dasbor Masuk Laporan</strong> (Kepala Sekolah / Tata Usaha / Bendahara).</p></div>
+                        <button class="btn btn-success" id="btn-add-admin-modal"><i class="fa-solid fa-user-plus"></i> Tambah Admin</button>
+                    </div>
+                    <div class="table-container glass-card">
+                        <table class="data-table">
+                            <thead><tr><th>Username</th><th>Jabatan</th><th>Password</th><th>Akses</th><th class="text-right">Aksi</th></tr></thead>
+                            <tbody id="admins-list-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB: PENGATURAN -->
+                <div class="tab-content" id="tab-schedule">
+                    <div class="content-header"><h2>Pengaturan & Sistem</h2></div>
+
+                    <!-- Jadwal Pelajaran (PNG View + Touchscreen) -->
+                    <div class="glass-card" style="padding: 20px; border-color: rgba(91, 134, 182, 0.25); margin-bottom: 16px;">
+                        <h3 style="color: var(--color-info);"><i class="fa-solid fa-calendar-days"></i> Jadwal Pelajaran</h3>
+                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+                            Lihat gambar jadwal pelajaran. Dukung zoom (cubit dua jari) dan geser untuk detail.
+                        </p>
+                        <button class="btn btn-primary" id="btn-open-sistem-jadwal" style="margin-top: 4px;">
+                            <i class="fa-solid fa-image"></i> Lihat Jadwal Pelajaran
+                        </button>
+                    </div>
+
+<!-- Notifikasi WhatsApp Settings -->
+                    <div class="settings-card glass-card" style="border-color: rgba(16, 185, 129, 0.25); margin-bottom: 16px;">
+                        <h3 style="color: var(--color-success);"><i class="fa-brands fa-whatsapp"></i> Notifikasi WhatsApp Izin / Sakit</h3>
+                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+                            Saat guru mengirim laporan izin/sakit, notifikasi akan otomatis dikirim via WhatsApp ke nomor di bawah.
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 13px;">Nomor WhatsApp Kepala Sekolah <span style="color: var(--color-info); font-size: 11px;">(Otomatis dari data guru - tidak bisa diubah)</span></label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="notif-headmaster-phone" class="login-input" placeholder="Otomatis dari data guru..." style="flex: 1; opacity: 0.7;" readonly disabled>
+                                    <button class="btn btn-secondary" onclick="refreshHeadmasterPhone()" style="padding: 8px 16px; white-space: nowrap;" title="Perbarui dari data guru"><i class="fa-solid fa-rotate"></i> Refresh</button>
+                                </div>
+                                <small style="color: var(--text-muted); font-size: 11px;">Nomor Kepala Sekolah diambil otomatis dari data guru dengan jabatan "Kepala Sekolah".</small>
+                            </div>
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 13px;">Nomor WhatsApp Guru Piket 1</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="notif-picket-phone-1" class="login-input" placeholder="Cth: 6281234567890" style="flex: 1;">
+                                </div>
+                                <small style="color: var(--text-muted); font-size: 11px;">Gunakan format internasional (628xxx). Akan terisi otomatis dari guru piket hari ini.</small>
+                            </div>
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 13px;">Nomor WhatsApp Guru Piket 2</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="notif-picket-phone-2" class="login-input" placeholder="Cth: 6281234567890" style="flex: 1;">
+                                </div>
+                                <small style="color: var(--text-muted); font-size: 11px;">Jika hanya ada 1 guru piket, biarkan kosong.</small>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; font-size: 12px; color: var(--text-secondary);">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-solid fa-circle-info" style="color: var(--color-success);"></i>
+                                    <span>Notifikasi akan dikirim ke:</span>
+                                </div>
+                                <ul style="margin: 4px 0 0 20px; padding: 0; list-style: disc;">
+                                    <li><strong>1 Kepala Sekolah</strong> (otomatis dari data guru)</li>
+                                    <li><strong>2 Guru Piket</strong> (nomor di atas)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-card glass-card" style="border-color: rgba(239, 68, 68, 0.25);">
+                        <h3 style="color: var(--color-danger);"><i class="fa-solid fa-trash-can"></i> Hapus Semua Data Sistem</h3>
+                        <p style="font-size: 13px; color: var(--text-secondary);">Hapus semua data guru, jadwal, dan riwayat yang tersimpan di browser.</p>
+                        <button class="btn" onclick="resetDatabaseLocal()" style="background: var(--color-danger); color:white; margin-top:10px;">Bersihkan Seluruh Sistem</button>
+                    </div>
+                </div>
+
+                <!-- TAB: LAPORAN -->
+                <div class="tab-content" id="tab-reports">
+                    <div class="content-header-row">
+                        <div class="content-header"><h2>Laporan Bulanan</h2></div>
+                        <div class="export-actions">
+                            <button class="btn btn-excel" id="btn-export-csv"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+                            <button class="btn btn-primary" id="btn-export-pdf"><i class="fa-solid fa-file-pdf"></i> Export PDF Presensi</button>
+                            <button class="btn btn-info" id="btn-export-izin-sakit" onclick="exportIzinSakitPdf()" style="background:var(--color-info); color:white;"><i class="fa-solid fa-file-pdf"></i> Export PDF Izin / Sakit</button>
+                        </div>
+                    </div>
+                    <div class="filter-bar glass-card">
+                        <label>Bulan:</label><select id="select-report-month"></select>
+                    </div>
+                    <div class="glass-card" style="padding:12px 16px; margin-bottom:12px; font-size:13px; color:var(--text-secondary);">
+                        <strong>Keterangan Skor:</strong> 90 - 100 = Sangat Baik, 80 - 89 = Baik, 70 - 79 = Cukup, di bawah 70 = Perlu Perbaikan.
+                    </div>
+                    <div class="table-container glass-card">
+                        <table class="data-table">
+                            <thead><tr><th>Nama Guru</th><th class="text-center">Hadir</th><th class="text-center">Tepat</th><th class="text-center">Lambat</th><th class="text-center">Izin</th><th class="text-center">Alpa</th><th class="text-right">Skor & Penilaian</th></tr></thead>
+                            <tbody id="report-list-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
-    <!-- MODAL ADD/EDIT TEACHER (Hidden by default) -->
+    <!-- MODAL JADWAL PELAJARAN (Pengaturan & Sistem) -->
+    <div class="modal-overlay hidden" id="jadwal-sistem-modal" aria-hidden="true">
+        <div class="modal-card glass-card animate-modal" style="max-width: 860px; width: 96vw;">
+            <div class="modal-header">
+                <h3>Jadwal Pelajaran</h3>
+                <button class="btn-close-modal" id="btn-close-jadwal-sistem-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 16px 20px 20px;">
+                <div class="rundown-zoom-controls">
+                    <div class="rundown-zoom-label">
+                        <i class="fa-solid fa-image"></i> Menampilkan jadwal pelajaran (sentuh layar untuk zoom & geser).
+                    </div>
+                    <div class="rundown-zoom-buttons">
+                        <button class="btn-zoom" id="btn-sistem-jadwal-zoom-out" title="Perkecil">
+                            <i class="fa-solid fa-search-minus"></i>
+                        </button>
+                        <span class="rundown-zoom-level" id="sistem-jadwal-zoom-display">100%</span>
+                        <button class="btn-zoom" id="btn-sistem-jadwal-zoom-in" title="Perbesar">
+                            <i class="fa-solid fa-search-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="sistem-jadwal-image-wrapper" style="border:1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow:hidden; background: rgba(0,0,0,0.25); min-height: 200px; position: relative; touch-action: none;">
+                    <img id="sistem-jadwal-png-image" src="jadwal_pelajaran_2026_27-1.png" alt="Jadwal Pelajaran" style="width: 100%; height: auto; display: block; user-select: none; -webkit-user-select: none; -webkit-user-drag: none;" onerror="this.parentElement.innerHTML='<div style=\'padding:40px; text-align:center; color:var(--text-muted);\'><i class=\'fa-solid fa-image\' style=\'font-size:40px; margin-bottom:12px; display:block;\'></i>Gambar jadwal belum tersedia. Silakan unggah file <strong>jadwal_pelajaran_2026_27-1.png</strong> di folder yang sama.</div>'">
+                </div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">
+                    Geser gambar dengan jari/mouse untuk melihat detail. Gunakan tombol zoom (+/-) atau cubit dua jari (pinch) untuk zoom.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="btn-close-jadwal-sistem-modal-2"><i class="fa-solid fa-check"></i> Selesai</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ALL MODALS (Admin) -->
+    <!-- Modal Guru -->
     <div class="modal-overlay hidden" id="teacher-modal">
         <div class="modal-card glass-card animate-modal">
             <div class="modal-header">
-                <h3 id="modal-title">Tambah Data Guru Baru</h3>
-                <button class="btn-close-modal" id="btn-close-teacher-modal">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+                <h3 id="modal-title">Tambah Data Guru</h3>
+                <button class="btn-close-modal" id="btn-close-teacher-modal"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <form id="form-teacher">
                 <input type="hidden" id="teacher-id">
                 <div class="modal-body">
-                    <div class="form-group">
-                        <label for="teacher-name">Nama Lengkap Guru</label>
-                        <input type="text" id="teacher-name" placeholder="Contoh: Budi Santoso, S.Pd." required>
+                    <div class="form-group"><label>Nama Lengkap</label><input type="text" id="teacher-name" required></div>
+                    <div class="form-group"><label>NIP</label><input type="text" id="teacher-nip" required></div>
+                    <div class="form-group"><label>Jabatan / Rule</label>
+                        <input type="text" id="teacher-jabatan" placeholder="Contoh: Guru Mapel, Wali Kelas, Kepala Sekolah..." value="Guru Mapel" style="width:100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass-light); color: var(--text-main); padding: 10px 16px; border-radius: var(--radius-sm); font-family: inherit;">
                     </div>
-                    <div class="form-group">
-                        <label for="teacher-nip">NIP (Nomor Induk Pegawai)</label>
-                        <input type="text" id="teacher-nip" placeholder="Contoh: 198203112009041003" required>
+                    <div class="form-group"><label>No. HP (WhatsApp)</label>
+                        <input type="text" id="teacher-nohp" placeholder="08xxxxxxxxxx" pattern="08[0-9]{8,}" style="width:100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass-light); color: var(--text-main); padding: 10px 16px; border-radius: var(--radius-sm); font-family: inherit;">
+                        <small style="color: var(--text-muted); font-size: 11px;">Gunakan format 08xxx (contoh: 08123456789)</small>
+                    </div>
+                    <div class="form-group"><label>Password Laporan</label>
+                        <input type="password" id="teacher-password" placeholder="Password untuk akses laporan (staff)" style="width:100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass-light); color: var(--text-main); padding: 10px 16px; border-radius: var(--radius-sm); font-family: inherit;">
+                        <small style="color: var(--text-muted); font-size: 11px;">Diperlukan untuk jabatan Kepala Sekolah / Tata Usaha / Bendahara saat masuk laporan.</small>
                     </div>
                     <div class="form-row">
-                        <div class="form-group">
-                            <label for="teacher-checkin">Jam Masuk Khusus</label>
-                            <input type="time" id="teacher-checkin" value="07:00">
-                        </div>
-                        <div class="form-group">
-                            <label for="teacher-picket">Hari Piket Utama</label>
-                            <select id="teacher-picket">
-                                <option value="Tidak Ada">Tidak Ada</option>
-                                <option value="Senin">Senin</option>
-                                <option value="Selasa">Selasa</option>
-                                <option value="Rabu">Rabu</option>
-                                <option value="Kamis">Kamis</option>
-                                <option value="Jumat">Jumat</option>
-                                <option value="Sabtu">Sabtu</option>
-                            </select>
-                        </div>
+                        <div class="form-group"><label>Hari Piket</label><select id="teacher-picket"><option value="Tidak Ada">Tidak Ada</option><option value="Setiap Hari">Setiap Hari</option><option value="Minggu">Minggu</option><option value="Senin">Senin</option><option value="Selasa">Selasa</option><option value="Rabu">Rabu</option><option value="Kamis">Kamis</option><option value="Jumat">Jumat</option><option value="Sabtu">Sabtu</option></select></div>
+                        <div class="form-group"><label>Jam Piket</label><input type="time" id="teacher-checkin" value="07:00"></div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" id="btn-cancel-teacher">Batal</button>
-                    <button type="submit" class="btn btn-primary" id="btn-save-teacher">Simpan Data</button>
-                </div>
+                <div class="modal-footer"><button type="submit" class="btn btn-primary">Simpan</button></div>
             </form>
         </div>
     </div>
 
-    <!-- Firebase SDK (Compat Version untuk kemudahan integrasi Vanilla JS) -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="firebase-config.js?v=2.0"></script>
-    <script src="qr-helper.js?v=2.0"></script>
-    <script src="app.js?v=2.0"></script>
+    <!-- Modal Jadwal -->
+    <div class="modal-overlay hidden" id="jadwal-modal">
+        <div class="modal-card glass-card animate-modal" style="max-width: 600px;">
+            <div class="modal-header"><h3>Atur Jadwal Mengajar</h3><button class="btn-close-modal" id="btn-close-jadwal-modal"><i class="fa-solid fa-xmark"></i></button></div>
+            <div class="modal-body">
+                <div style="display:flex; gap:12px; margin-bottom:16px;">
+<div class="form-group" style="flex:1;"><label>Guru</label><input type="text" id="jadwal-teacher-name-display" disabled placeholder="Pilih guru dulu" style="background: rgba(255,255,255,0.02);"><input type="hidden" id="jadwal-teacher-id"></div>
+                    <div class="form-group" style="flex:0 0 140px;"><label>Hari</label><input type="text" id="jadwal-day-display" disabled style="background: rgba(255,255,255,0.02); color: var(--color-info);"><input type="hidden" id="jadwal-day"></div>
+                </div>
+                <div id="jadwal-entries-container" style="display:flex; flex-direction:column; gap:10px; max-height:320px; overflow-y:auto; padding-right:4px;"></div>
+                <button type="button" class="btn btn-secondary" id="btn-add-jadwal-entry" style="margin-top: 12px; width:100%;">Tambah Kelas</button>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-primary" id="btn-save-jadwal">Simpan</button></div>
+        </div>
+    </div>
+
+    <!-- Modal Absen Admin -->
+    <div class="modal-overlay hidden" id="attendance-modal">
+        <div class="modal-card glass-card animate-modal">
+            <div class="modal-header"><h3 id="attendance-modal-title">Edit Kehadiran</h3><button class="btn-close-modal" id="btn-close-attendance-modal"><i class="fa-solid fa-xmark"></i></button></div>
+            <form id="form-attendance">
+                <input type="hidden" id="att-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group"><label>Guru</label><select id="att-teacher-id"></select></div>
+                        <div class="form-group"><label>Tanggal</label><input type="date" id="att-date" required></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Jam Datang</label><input type="time" id="att-time" step="1"></div>
+                        <div class="form-group"><label>Jam Pulang</label><input type="time" id="att-time-out" step="1"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Status Datang</label><select id="att-status"><option value="Tepat Waktu">Tepat Waktu</option><option value="Terlambat">Terlambat</option><option value="Izin">Izin</option><option value="Sakit">Sakit</option><option value="Alpa">Alpa</option></select></div>
+                    </div>
+                    <div class="form-group"><label>Keterangan (Izin/Pulang Cepat)</label><input type="text" id="att-keterangan"></div>
+                </div>
+                <div class="modal-footer"><button type="submit" class="btn btn-primary">Simpan</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Kelola Admin -->
+    <div class="modal-overlay hidden" id="admin-account-modal">
+        <div class="modal-card glass-card animate-modal">
+            <div class="modal-header"><h3>Tambah Admin</h3><button class="btn-close-modal" id="btn-close-admin-modal"><i class="fa-solid fa-xmark"></i></button></div>
+            <form id="form-admin-account">
+                <div class="modal-body">
+                    <div class="form-group"><label>Username</label><input type="text" id="new-admin-user" required></div>
+                    <div class="form-group"><label>Password</label><input type="password" id="new-admin-pass" required></div>
+                </div>
+                <div class="modal-footer"><button type="submit" class="btn btn-primary">Tambah</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js?v=5.0"></script>
+    
+    <!-- QR Code Generator (untuk Admin) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- jsQR Scanner (untuk kamera HP Guru) -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    
+    <script src="app.js?v=5.3"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('sw.js?v=5.3').then(function(registration) {
+                    console.log('[SW] Service Worker registered:', registration.scope);
+
+                    if (registration.waiting) {
+                        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    }
+
+                    navigator.serviceWorker.addEventListener('controllerchange', function() {
+                        window.location.reload();
+                    });
+                }).catch(function(error) {
+                    console.warn('[SW] Service Worker registration failed:', error);
+                });
+            });
+        }
+    </script>
 </body>
 </html>
+
