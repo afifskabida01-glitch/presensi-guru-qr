@@ -21,12 +21,14 @@ let isFirebaseActive = false;
 let automaticAlpaRunning = false;
 let teachersLoaded = false;
 let attendanceLoaded = false;
+let systemSettingsLoaded = false;
 
 // ==========================================================================
 // FIREBASE INIT & SYNC
 // ==========================================================================
 
 function initDatabase() {
+    updateFirebaseSyncStatus("Menghubungkan");
     if (window.firebaseConfig && window.firebaseConfig.apiKey && window.firebaseConfig.apiKey !== "YOUR_API_KEY") {
         try {
             if (!firebase.apps.length) {
@@ -40,16 +42,33 @@ function initDatabase() {
         } catch (e) {
             console.error("Gagal inisialisasi Firebase. Beralih ke mode Offline/Lokal.", e);
             setupLocalStorageFallback();
+            updateFirebaseSyncStatus("Mode lokal");
             checkSession();
         }
     } else {
         console.warn("Konfigurasi Firebase tidak ditemukan. Beralih ke mode Offline/Lokal.");
         setupLocalStorageFallback();
+        updateFirebaseSyncStatus("Mode lokal");
         checkSession();
     }
 }
 
 function setupFirebaseListeners() {
+    db.collection("settings").doc("system").onSnapshot((snapshot) => {
+        if (snapshot.exists) {
+            const settings = snapshot.data();
+            if (Array.isArray(settings.picketPhones)) notifConfig.picketPhones = settings.picketPhones;
+            systemSettingsLoaded = true;
+            updateNotifFields();
+            updateFirebaseSyncStatus("Tersinkronisasi");
+        } else {
+            persistSystemSettings();
+        }
+    }, (error) => {
+        console.error("Gagal membaca pengaturan Firebase:", error);
+        updateFirebaseSyncStatus("Gagal tersinkronisasi");
+    });
+
     db.collection("admins").onSnapshot((snapshot) => {
         state.admins = [];
         snapshot.forEach((doc) => state.admins.push(doc.data()));
@@ -85,6 +104,11 @@ function setupFirebaseListeners() {
             renderGuruHistory();
         }
     });
+}
+
+function updateFirebaseSyncStatus(status) {
+    const element = document.getElementById("firebase-sync-status");
+    if (element) element.textContent = isFirebaseActive ? status : "Mode lokal";
 }
 
 function triggerAdminRender() {
@@ -158,6 +182,20 @@ function setupLocalStorageFallback() {
 
 window.resetDatabaseLocal = function() {
     if(confirm("PERINGATAN: Semua data guru, jadwal, dan riwayat presensi akan dihapus permanen. Lanjutkan?")) {
+        if (isFirebaseActive && db) {
+            const collections = ["teachers", "schedules", "attendance"];
+            Promise.all(collections.map(collection => db.collection(collection).get().then(snapshot => {
+                const batch = db.batch();
+                snapshot.forEach(doc => batch.delete(doc.ref));
+                return batch.commit();
+            }))).then(() => {
+                alert("Data cloud berhasil dibersihkan. Akun admin tetap dipertahankan.");
+            }).catch(error => {
+                console.error("Gagal membersihkan data cloud:", error);
+                alert("Data cloud gagal dibersihkan. Periksa koneksi dan aturan Firestore.");
+            });
+            return;
+        }
         localStorage.clear();
         sessionStorage.clear();
         alert("Data berhasil dibersihkan. Aplikasi akan dimuat ulang.");
@@ -1419,6 +1457,32 @@ let notifConfig = {
     picketPhones: []       // Array of nomor guru piket hari ini (bisa 1, 2, atau lebih)
 };
 
+function updateNotifFields() {
+    const hmField = document.getElementById('notif-headmaster-phone');
+    const pkField1 = document.getElementById('notif-picket-phone-1');
+    const pkField2 = document.getElementById('notif-picket-phone-2');
+    if (hmField) hmField.value = notifConfig.headmasterPhone || '';
+    if (pkField1) pkField1.value = notifConfig.picketPhones[0] || '';
+    if (pkField2) pkField2.value = notifConfig.picketPhones[1] || '';
+}
+
+async function persistSystemSettings() {
+    const settings = {
+        picketPhones: notifConfig.picketPhones || [],
+        updatedAt: new Date().toISOString()
+    };
+    if (isFirebaseActive && db) {
+        try {
+            await db.collection('settings').doc('system').set(settings, { merge: true });
+        } catch (error) {
+            console.error('Gagal menyimpan pengaturan ke Firestore:', error);
+            updateFirebaseSyncStatus('Gagal menyimpan');
+        }
+    } else {
+        localStorage.setItem('qr_presensi_notif_config', JSON.stringify(notifConfig));
+    }
+}
+
 // Format nomor HP lokal (08xxx) ke format internasional (628xxx)
 function formatPhoneToInternational(phone) {
     if (!phone) return '';
@@ -1472,7 +1536,9 @@ function autoDetectNotifNumbers() {
     }
     
     // Guru Piket: isi array dari data guru
-    notifConfig.picketPhones = detectedPickets;
+    if (detectedPickets.length > 0 || notifConfig.picketPhones.length === 0) {
+        notifConfig.picketPhones = detectedPickets;
+    }
     
     // Update field di UI
     const hmField = document.getElementById('notif-headmaster-phone');
@@ -1484,7 +1550,7 @@ function autoDetectNotifNumbers() {
     if (pkField2) pkField2.value = notifConfig.picketPhones[1] || '';
     
     // Simpan otomatis
-    localStorage.setItem('qr_presensi_notif_config', JSON.stringify(notifConfig));
+    persistSystemSettings();
 }
 
 // Load konfigurasi + auto-detect nomor dari data guru
@@ -1504,14 +1570,7 @@ function loadNotifConfig() {
         // Auto-detect nomor dari data guru (prioritas utama untuk kepala sekolah)
         autoDetectNotifNumbers();
         
-        // Tampilkan di field
-        const hmField = document.getElementById('notif-headmaster-phone');
-        const pkField1 = document.getElementById('notif-picket-phone-1');
-        const pkField2 = document.getElementById('notif-picket-phone-2');
-        
-        if (hmField) hmField.value = notifConfig.headmasterPhone;
-        if (pkField1) pkField1.value = notifConfig.picketPhones[0] || '';
-        if (pkField2) pkField2.value = notifConfig.picketPhones[1] || '';
+        updateNotifFields();
         
         // Auto-detect ulang setelah 1 detik (tunggu data guru ter-render)
         setTimeout(autoDetectNotifNumbers, 1000);
@@ -1545,8 +1604,7 @@ function saveNotifConfig() {
     }
     
     notifConfig.picketPhones = phones;
-    localStorage.setItem('qr_presensi_notif_config', JSON.stringify(notifConfig));
-    alert('✅ Konfigurasi nomor Guru Piket berhasil disimpan!');
+    persistSystemSettings().then(() => alert('Konfigurasi nomor Guru Piket berhasil disimpan.'));
 }
 
 window.saveNotifConfig = saveNotifConfig;
@@ -1558,7 +1616,7 @@ function refreshHeadmasterPhone() {
         notifConfig.headmasterPhone = detected;
         const hmField = document.getElementById('notif-headmaster-phone');
         if (hmField) hmField.value = detected;
-        localStorage.setItem('qr_presensi_notif_config', JSON.stringify(notifConfig));
+        persistSystemSettings();
         alert('✅ Nomor Kepala Sekolah berhasil diperbarui: ' + detected);
     } else {
         alert('⚠️ Tidak ditemukan guru dengan jabatan "Kepala Sekolah". Pastikan data guru sudah diisi dengan jabatan yang benar.');

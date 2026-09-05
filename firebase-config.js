@@ -1,7 +1,5 @@
-// Configuration file for Firebase Integration
-// Dapatkan nilai di bawah ini dari konsol Firebase (Proyek Anda -> Project Settings -> General -> Web Apps)
-
-const firebaseConfig = {
+// Firebase configuration for the compat SDK loaded by index.html.
+window.firebaseConfig = {
   apiKey: "AIzaSyC1Pp7GpFX3vZ4SVrZ2EFh0gBhi-p9foLU",
   authDomain: "qrpresensi-guru.firebaseapp.com",
   projectId: "qrpresensi-guru",
@@ -10,6 +8,3 @@ const firebaseConfig = {
   appId: "1:898150961322:web:f3a734659f4b50c54400d3",
   measurementId: "G-PQWQLY9PC7"
 };
-
-// Ekspor ke window agar terbaca oleh app.js
-window.firebaseConfig = firebaseConfig;
