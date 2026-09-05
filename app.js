@@ -69,6 +69,7 @@ function setupFirebaseListeners() {
         updateFirebaseSyncStatus("Gagal tersinkronisasi");
     });
 
+
     db.collection("admins").onSnapshot((snapshot) => {
         state.admins = [];
         snapshot.forEach((doc) => state.admins.push(doc.data()));
@@ -123,6 +124,11 @@ function triggerAdminRender() {
     try { renderLiveFeed(); } catch (e) { console.error("Gagal renderLiveFeed:", e); }
     try { renderTeachersTable(); } catch (e) { console.error("Gagal renderTeachersTable:", e); }
     try { populateTeacherDropdownsAdmin(); } catch (e) { console.error("Gagal populateTeacherDropdownsAdmin:", e); }
+    try {
+        if (document.getElementById("select-jadwal-teacher")?.value) {
+            populateJadwalGrid();
+        }
+    } catch (e) { console.error("Gagal memperbarui grid jadwal:", e); }
     try { renderManageAttendanceTable(); } catch (e) { console.error("Gagal renderManageAttendanceTable:", e); }
     try { renderAdminsTable(); } catch (e) { console.error("Gagal renderAdminsTable:", e); }
     try { renderReports(); } catch (e) { console.error("Gagal renderReports:", e); }
@@ -3529,4 +3535,3 @@ window.addEventListener("load", () => {
         onChange();
     } catch(e) {}
 });
-
