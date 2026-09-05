@@ -5,7 +5,7 @@
  * - Caching untuk akses offline
  */
 
-const CACHE_NAME = 'epgskabida-cache-v5';
+const CACHE_NAME = 'epgskabida-cache-v6';
 const SW_BASE = new URL('.', self.location.href);
 const APP_BASE = SW_BASE.pathname;
 const ASSETS_TO_CACHE = [
@@ -140,4 +140,3 @@ self.addEventListener('notificationclick', (event) => {
         })
     );
 });
-
