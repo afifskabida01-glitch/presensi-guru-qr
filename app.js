@@ -74,7 +74,7 @@ function setupFirebaseListeners() {
         state.admins = [];
         snapshot.forEach((doc) => state.admins.push(doc.data()));
         if(state.admins.length === 0) {
-            db.collection("admins").doc("admin1").set({ id: "admin1", username: "admin", password: "123", role: "superadmin" });
+            db.collection("admins").doc("admin1").set({ id: "admin1", username: "admin", password: "123", role: "superadmin", access: "admin" });
         }
         triggerAdminRender();
     });
@@ -182,7 +182,7 @@ function setupLocalStorageFallback() {
     state.teachers = JSON.parse(localStorage.getItem('qr_presensi_teachers')) || [];
     state.schedules = JSON.parse(localStorage.getItem('qr_presensi_schedules')) || [];
     state.attendance = JSON.parse(localStorage.getItem('qr_presensi_attendance')) || [];
-    state.admins = JSON.parse(localStorage.getItem('qr_presensi_admins')) || [{ id: "admin1", username: "admin", password: "123", role: "superadmin" }];
+    state.admins = JSON.parse(localStorage.getItem('qr_presensi_admins')) || [{ id: "admin1", username: "admin", password: "123", role: "superadmin", access: "admin" }];
     scheduleAutomaticPicketAlpa();
 }
 
@@ -420,7 +420,19 @@ document.getElementById("btn-login-admin").addEventListener('click', () => {
     
     const adminMatch = state.admins.find(a => a.username === user && a.password === pass);
     if (adminMatch) {
-        currentUser = { role: 'admin', data: adminMatch };
+        const access = adminMatch.access === 'laporan' ? 'laporan' : 'admin';
+        if (access === 'laporan') {
+            currentUser = {
+                role: 'staff',
+                data: {
+                    ...adminMatch,
+                    name: adminMatch.username,
+                    jabatan: 'Admin Laporan'
+                }
+            };
+        } else {
+            currentUser = { role: 'admin', data: adminMatch };
+        }
         sessionStorage.setItem('qr_presensi_session', JSON.stringify(currentUser));
         document.getElementById("login-admin-user").value = '';
         document.getElementById("login-admin-pass").value = '';
@@ -2186,10 +2198,14 @@ function renderAdminsTable() {
     // Bagian 1: Akun Dasbor Admin (dari admins)
     state.admins.forEach(a => {
         const jabatan = (a.role === 'superadmin') ? 'Super Admin' : 'Admin';
+        const access = a.access === 'laporan' ? 'laporan' : 'admin';
         const sudahAda = rows.indexOf("admin" + a.username) !== -1;
         if (sudahAda) return;
         let deleteBtn = a.username !== 'admin' ? '<button class="btn-icon" title="Hapus" onclick="deleteData(\'admins\', \'' + a.id + '\')"><i class="fa-solid fa-trash"></i></button>' : '';
-        rows += '<tr data-acarkey="admin' + a.username + '"><td><strong>' + a.username + '</strong></td><td>' + jabatan + '</td><td>' + passCode(a.password) + '</td><td><span class="badge badge-primary" style="background:rgba(91,134,182,0.15); color:var(--color-info); border-color:rgba(91,134,182,0.3);">Dasbor Admin</span></td><td><div class="action-buttons">' + deleteBtn + '</div></td></tr>';
+        const accessBadge = access === 'laporan'
+            ? '<span class="badge" style="background:rgba(16,185,129,0.15); color:var(--color-success); border-color:rgba(16,185,129,0.3);">Dasbor Laporan</span>'
+            : '<span class="badge badge-primary" style="background:rgba(91,134,182,0.15); color:var(--color-info); border-color:rgba(91,134,182,0.3);">Dasbor Admin</span>';
+        rows += '<tr data-acarkey="admin' + a.username + '"><td><strong>' + a.username + '</strong></td><td>' + jabatan + '</td><td>' + passCode(a.password) + '</td><td>' + accessBadge + '</td><td><div class="action-buttons"><button class="btn-icon" title="Edit" onclick="editAdmin(\'' + a.id + '\')"><i class="fa-solid fa-pen"></i></button>' + deleteBtn + '</div></td></tr>';
     });
 
     // Bagian 2: Akun Dasbor Masuk Laporan (guru dengan jabatan staff)
@@ -2205,14 +2221,44 @@ function renderAdminsTable() {
     tbody.innerHTML = rows;
 }
 const adminModal = document.getElementById("admin-account-modal");
-document.getElementById("btn-add-admin-modal").addEventListener("click", () => adminModal.classList.remove("hidden"));
+const adminAccountForm = document.getElementById("form-admin-account");
+const adminAccountTitle = document.getElementById("admin-account-modal-title");
+const adminAccountSubmit = document.getElementById("admin-account-submit");
+document.getElementById("btn-add-admin-modal").addEventListener("click", () => {
+    adminAccountForm.reset();
+    document.getElementById("admin-account-id").value = "";
+    document.getElementById("new-admin-access").value = "admin";
+    adminAccountTitle.textContent = "Tambah Admin";
+    adminAccountSubmit.textContent = "Tambah";
+    adminModal.classList.remove("hidden");
+});
 document.getElementById("btn-close-admin-modal").addEventListener("click", () => adminModal.classList.add("hidden"));
-document.getElementById("form-admin-account").addEventListener("submit", (e) => {
+adminAccountForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    const id = "A"+Date.now();
-    const newData = { id, username: document.getElementById("new-admin-user").value, password: document.getElementById("new-admin-pass").value, role: "admin" };
+    const existingId = document.getElementById("admin-account-id").value;
+    const id = existingId || "A"+Date.now();
+    const existing = state.admins.find(a => a.id === id);
+    const newData = {
+        ...(existing || {}),
+        id,
+        username: document.getElementById("new-admin-user").value.trim(),
+        password: document.getElementById("new-admin-pass").value,
+        access: document.getElementById("new-admin-access").value,
+        role: existing?.role || "admin"
+    };
     saveData("admins", id, newData).then(() => adminModal.classList.add("hidden"));
 });
+window.editAdmin = function(id) {
+    const admin = state.admins.find(a => a.id === id);
+    if (!admin) return;
+    document.getElementById("admin-account-id").value = admin.id;
+    document.getElementById("new-admin-user").value = admin.username || "";
+    document.getElementById("new-admin-pass").value = admin.password || "";
+    document.getElementById("new-admin-access").value = admin.access === "laporan" ? "laporan" : "admin";
+    adminAccountTitle.textContent = "Edit Admin";
+    adminAccountSubmit.textContent = "Simpan";
+    adminModal.classList.remove("hidden");
+};
 
 // ADMIN: REPORTS
 function getScoreLabel(score) {

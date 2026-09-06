@@ -742,13 +742,21 @@
     <!-- Modal Kelola Admin -->
     <div class="modal-overlay hidden" id="admin-account-modal">
         <div class="modal-card glass-card animate-modal">
-            <div class="modal-header"><h3>Tambah Admin</h3><button class="btn-close-modal" id="btn-close-admin-modal"><i class="fa-solid fa-xmark"></i></button></div>
+            <div class="modal-header"><h3 id="admin-account-modal-title">Tambah Admin</h3><button class="btn-close-modal" id="btn-close-admin-modal"><i class="fa-solid fa-xmark"></i></button></div>
             <form id="form-admin-account">
+                <input type="hidden" id="admin-account-id">
                 <div class="modal-body">
                     <div class="form-group"><label>Username</label><input type="text" id="new-admin-user" required></div>
                     <div class="form-group"><label>Password</label><input type="password" id="new-admin-pass" required></div>
+                    <div class="form-group">
+                        <label>Akses Dasbor</label>
+                        <select id="new-admin-access" required>
+                            <option value="admin">Dasbor Admin</option>
+                            <option value="laporan">Dasbor Laporan</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="modal-footer"><button type="submit" class="btn btn-primary">Tambah</button></div>
+                <div class="modal-footer"><button type="submit" class="btn btn-primary" id="admin-account-submit">Tambah</button></div>
             </form>
         </div>
     </div>
